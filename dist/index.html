@@ -14276,7 +14276,7 @@ var TechniciansManagementView = ({
 
     setDeleteConfirmId(null);
     if (editingTech && editingTech.id === techId) setEditingTech(null);
-    if (onShowToast) onShowToast('Technician "' + (target ? target.name : techId) + '" removed from all rosters.', 'info');
+    if (onShowToast) onShowToast('Technician "' + (target ? target.name : techId) + '" and linked login removed; roster assignments cleared.', 'info');
   };
 
   // Save Callout of the Month from top banner modal
@@ -14663,7 +14663,7 @@ var TechniciansManagementView = ({
                               (0, N.jsxs)("div", {
                                 style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 8px" },
                                 children: [
-                                  (0, N.jsxs)("span", { style: { color: "#991B1B", fontWeight: 700, fontSize: "13px" }, children: ["Are you sure you want to delete ", tech.name, " (", tech.id, ") and unassign from all teams?"] }),
+                                  (0, N.jsxs)("span", { style: { color: "#991B1B", fontWeight: 700, fontSize: "13px" }, children: ["Are you sure you want to delete ", tech.name, " (", tech.id, ") including their linked user login, and unassign from all teams?"] }),
                                   (0, N.jsxs)("div", {
                                     style: { display: "flex", gap: 6 },
                                     children: [
