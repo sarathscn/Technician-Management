@@ -13,6 +13,11 @@ test('IDs match dashboard rules without matching missing IDs',()=>{
  for(const id of [null,undefined,''])assert.equal(sameTechnician(id,''),false);
  assert.equal(sameTechnician('170','181'),false);
 });
+test('directory excludes administrator and coordinator accounts, retaining unlinked technicians',()=>{
+ const records=['001','002','003','170','181'].map(id=>({kind:'technician',id,payload:{name:id}}));
+ const profiles=[{technician_id:'1',role:'Administrator'},{technician_id:'002',role:'Admin'},{technician_id:'003',role:'Coordinator'},{technician_id:'170',role:'Technician'}];
+ assert.deepEqual(technicianDirectory(records,profiles).map(t=>t.id),['170','181']);
+});
 test('assigned callouts are returned; reassigned and other technicians calls stay private',()=>{
  const call=(id,payload)=>({kind:'callout',id,payload});
  const records=[call('own',{assignedTechnicianId:'170'}),call('other',{assignedTechnicianId:'181'}),call('away',{assignedTechnicianId:'170',rescheduledTechnicianId:'181'}),call('incoming',{assignedTechnicianId:'181',rescheduledTechnicianId:'00170'}),call('unassigned',{})];
