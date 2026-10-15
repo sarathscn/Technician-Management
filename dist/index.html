@@ -2859,15 +2859,15 @@ html[data-theme] .themed-calendar-day[data-date-status~="overtime"][data-date-st
  .allocation-table .cell-actions .action-icon-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:34px!important;height:34px!important;padding:0!important;margin:0!important;border-radius:8px!important}
 }
 
-.ot-team-menu { display:flex !important; flex-direction:column; gap:8px; box-sizing:border-box; }
+.ot-team-menu { display:flex !important; flex-direction:column; gap:10px; box-sizing:border-box; overflow:hidden !important; }
 .ot-team-menu > input { margin:0; flex-shrink:0; }
-.ot-member-list { min-height:0; max-height:240px; overflow-y:auto; }
-.ot-team-menu .ot-member-option { display:flex !important; justify-content:flex-start !important; align-items:center !important; gap:12px; padding:10px 12px; border-radius:8px; min-height:48px; text-align:left; }
+.ot-member-list { flex:1 1 auto; min-height:0; max-height:240px; overflow-y:auto; scrollbar-gutter:stable; overscroll-behavior:contain; }
+.ot-team-menu .ot-member-option { display:flex !important; justify-content:flex-start !important; align-items:center !important; gap:12px; padding:10px 12px; border-radius:8px; min-height:56px; box-sizing:border-box; text-align:left; }
 .ot-team-menu .ot-member-option input[type=checkbox] { margin:0; width:18px; height:18px; flex:0 0 18px; }
 .ot-member-identity { display:flex; flex-direction:column; align-items:flex-start; gap:3px; min-width:0; overflow-wrap:anywhere; }
 .ot-member-identity small,.ot-member-count { color:var(--text-muted); font-size:11px; }
-.ot-member-count { padding:4px 12px; }
-.ot-team-menu > .btn { margin-top:0; flex-shrink:0; }
+.ot-member-count { flex:0 0 auto; margin:0; padding:2px 12px; line-height:18px; }
+.ot-team-menu > .btn { margin:0; min-height:38px; flex:0 0 auto; }
 </style>
   <style id="cloud-account-ui">
 .cloud-accounts{padding:24px!important;min-width:0}.cloud-account-heading{display:flex;gap:20px;align-items:center;justify-content:space-between;margin-bottom:24px}.cloud-account-heading h2{margin:0 0 8px}.cloud-account-heading p{margin:0;line-height:1.5;color:var(--text-muted)}.cloud-account-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 24px;padding:22px;border:1px solid var(--border-color,#cbdedb);border-radius:14px;background:var(--bg-main,#f3f9f7);margin-bottom:28px}.cloud-account-form h3{grid-column:1/-1;margin:0;font-size:16px}.cloud-field{display:flex;flex-direction:column;gap:8px;min-width:0;font-size:13px;font-weight:600}.cloud-field input,.cloud-field select,.cloud-field .themed-select-wrapper{width:100%;box-sizing:border-box;min-height:40px}.cloud-account-buttons{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;padding-top:4px}.cloud-account-buttons .btn{min-width:150px}.cloud-account-list-heading{margin-bottom:12px}.cloud-account-list-heading h3{font-size:16px;margin:0}.cloud-account-table th,.cloud-account-table td{text-align:left!important;padding:14px!important}.cloud-account-row-actions{display:flex;gap:8px;flex-wrap:wrap}.cloud-account-status{display:inline-block;padding:4px 10px;border-radius:20px;background:var(--bg-hover,#e4f1eb)}.cloud-account-self{color:var(--text-muted);font-size:12px}.cloud-account-error{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;background:#fff0f0;color:#a12121;border-radius:10px;margin-bottom:16px}.cloud-credential-overlay{position:fixed;inset:0;z-index:100001;background:#00251c77;display:grid;place-items:center;padding:20px}.cloud-credential-dialog{background:var(--bg-card,#f8fcfa);color:var(--text-main,#16382e);border:1px solid #bdd4cc;border-radius:18px;padding:24px;max-width:600px;width:100%;box-sizing:border-box;max-height:85vh;overflow:auto}.cloud-credential-dialog h2{margin-top:0}.cloud-credential-dialog pre{white-space:pre-wrap;word-break:break-all;padding:16px;background:var(--bg-main,#eaf3ef);border-radius:8px}.cloud-credential-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}@media(max-width:640px){.cloud-accounts{padding:16px!important}.cloud-account-heading{align-items:stretch;flex-direction:column}.cloud-account-form{grid-template-columns:minmax(0,1fr);padding:16px;gap:16px}.cloud-account-buttons{flex-wrap:wrap}.cloud-account-buttons .btn{flex:1}.cloud-account-table{min-width:650px}.cloud-account-row-actions .btn{white-space:nowrap}}
@@ -3109,7 +3109,7 @@ var TechnicianMultiSelect=({technicians,value,onChange})=>{
 
 var OvertimeView=({currentUser,technicians=[],onShowToast})=>{
   let directory=[];try{directory=JSON.parse(localStorage.getItem('amc_technician_directory')||'[]');}catch(e){}
-  const teamTechnicians=[...new Map([...technicians,...directory].map(t=>[String(t.id),{id:String(t.id),name:t.name}])).values()];
+  const teamTechnicians=window.TMCloud?directory:[...new Map(technicians.filter(t=>!['Administrator','Admin','Coordinator'].includes(t.role)).map(t=>[String(t.id),{id:String(t.id),name:t.name}])).values()];
   let coordinators=[];try{coordinators=JSON.parse(localStorage.getItem('amc_system_users')||'[]').map(normalizeAccount).filter(u=>u.role==='Coordinator'&&u.status!=='Suspended');}catch(e){}
   const blank=()=>({date:localDateISO(),start:'',end:'',workType:'Callout',work:'',client:'',location:'',teamIds:[],approvedBy:''});
   const [form,setForm]=(0,_.useState)(blank),[records,setRecords]=(0,_.useState)(loadOvertimeRecords),[selected,setSelected]=(0,_.useState)(null),[search,setSearch]=(0,_.useState)(''),[busy,setBusy]=(0,_.useState)(false);
@@ -3543,7 +3543,7 @@ var FloatingPanel = ({anchor, owner, className, style, children,onClose}) => {
       const rect = anchor.current.getBoundingClientRect(), box = panel.current.getBoundingClientRect();
       const below = window.innerHeight - rect.bottom - 12;
       const above = rect.top - 12;
-      const cap = className.includes('custom-select-menu') ? 240 : 600;
+      const cap = className.includes('ot-team-menu') ? 420 : className.includes('custom-select-menu') ? 240 : 600;
       const naturalHeight = panel.current.scrollHeight + 2;
       const desiredHeight = Math.min(naturalHeight, cap);
       const useAbove = below < desiredHeight && above > below;

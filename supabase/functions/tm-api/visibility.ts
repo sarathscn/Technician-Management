@@ -5,8 +5,10 @@ export function sameTechnician(left: unknown, right: unknown): boolean {
  return !!id && id===normalize(right);
 }
 
-export function technicianDirectory(records: any[]): {id: string, name: string}[] {
- return records.filter(record=>record.kind==='technician').map(record=>({
+export function technicianDirectory(records: any[], profiles: any[]=[]): {id: string, name: string}[] {
+ return records.filter(record=>record.kind==='technician'&&!profiles.some(profile=>
+  ['Administrator','Admin','Coordinator'].includes(profile.role)&&sameTechnician(record.id,profile.technician_id)
+ )).map(record=>({
   id:String(record.id),name:String(record.payload?.name||record.id)
  })).sort((a,b)=>a.name.localeCompare(b.name));
 }
