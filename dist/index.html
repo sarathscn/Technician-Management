@@ -2923,6 +2923,36 @@ html[data-theme] .mobile-navigation-dialog[open] { animation:none !important; }
  .allocation-table tr:not(:has(.cell-actions)) .cell-transport { grid-column:1/-1 !important; }
  .allocation-table .cell-tech,.allocation-table .cell-project,.allocation-table .cell-seq { grid-column:1/-1 !important; }
 }
+</style><style id="overtime-and-desktop-export">
+.ot-table-scroll { max-width:100%; min-width:0; box-sizing:border-box; }
+.ot-records-table { min-width:1120px; }
+.ot-records-table th,.ot-records-table td { padding:10px 12px; vertical-align:middle; }
+.ot-records-table td:first-child { font-weight:600; }
+.ot-records-table .btn { min-height:36px; white-space:nowrap; }
+@media screen and (max-width:640px) {
+ .ot-table-scroll { overflow:visible; border:0; border-radius:0; }
+ .ot-records-table { display:block; width:100%; min-width:0; }
+ .ot-records-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+ .ot-records-table tbody { display:flex; flex-direction:column; gap:14px; }
+ .ot-records-table tbody tr { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 12px; padding:12px; border:1px solid var(--border-light); border-radius:12px; background:var(--surface); }
+ .ot-records-table td { display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-width:0; max-width:none; padding:9px 0; border-bottom:1px solid var(--border-light); overflow-wrap:anywhere; white-space:normal; }
+ .ot-records-table td::before { content:attr(data-label); font-size:11px; font-weight:600; color:var(--text-secondary); }
+ .ot-records-table td:nth-child(1),.ot-records-table td:nth-child(7),.ot-records-table td:nth-child(10),.ot-records-table td:nth-child(11),.ot-records-table td:nth-child(12) { grid-column:1/-1; }
+ .ot-records-table td:last-child { border:0; padding-bottom:0; }
+}
+/* Export a fixed desktop table from every device. These rules override mobile cards. */
+html[data-theme] #printable-allocation-sheet.capturing-image { width:1120px !important; min-width:1120px !important; max-width:none !important; padding:20px !important; box-sizing:border-box; }
+.capturing-image .responsive-table-scroll { overflow:visible !important; max-height:none !important; }
+.capturing-image .allocation-table { display:table !important; width:100% !important; min-width:0 !important; table-layout:fixed !important; border-collapse:collapse !important; }
+.capturing-image .allocation-table thead { display:table-header-group !important; position:static !important; width:auto !important; height:auto !important; overflow:visible !important; clip-path:none !important; }
+.capturing-image .allocation-table tbody { display:table-row-group !important; }
+.capturing-image .allocation-table tbody tr { display:table-row !important; border-radius:0 !important; padding:0 !important; }
+.capturing-image .allocation-table tbody td { display:table-cell !important; width:auto !important; min-width:0 !important; max-width:none !important; padding:10px 12px !important; border:1px solid var(--border-default) !important; vertical-align:middle !important; }
+.capturing-image .allocation-table tr::before,.capturing-image .allocation-table td::before { display:none !important; content:none !important; }
+.capturing-image .allocation-table .col-seq { width:48px !important; }
+.capturing-image .allocation-table .col-tech { width:260px !important; }
+.capturing-image .allocation-table .col-transport { width:160px !important; }
+.capturing-image .sheet-title-banner { display:flex !important; flex-direction:row !important; align-items:center !important; gap:24px !important; }
 </style></head>
   <body>
     <div id="root"></div>
@@ -3249,8 +3279,8 @@ var OvertimeView=({currentUser,technicians=[],onShowToast})=>{
       visible.length?(0,N.jsx)('div',{className:'ot-table-scroll',tabIndex:0,'aria-label':'Overtime records table',children:(0,N.jsxs)('table',{className:'ot-records-table',children:[
         (0,N.jsx)('thead',{children:(0,N.jsx)('tr',{children:['Technician','Date','Day','Started','Ended','Total hours','Callout / Project','Client','Location','Team members','Approved by','Sheet'].map(label=>(0,N.jsx)('th',{scope:'col',children:label},label))})}),
         (0,N.jsx)('tbody',{children:visible.map(record=>(0,N.jsxs)('tr',{children:[
-          ...[record.ownerName,record.date,overtimeDay(record.date),record.start,record.end+(record.end<record.start?' (+1 day)':''),(overtimeMinutes(record.start,record.end)/60).toFixed(2),record.workType+': '+record.work,record.client,record.location,(record.teamNames||[]).join(', ')||'—',record.approvedBy||'—'].map((value,index)=>(0,N.jsx)('td',{children:value},index)),
-          (0,N.jsx)('td',{children:(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:()=>{setSelected(record);if(record.ownerId===currentUser.id)setForm({...blank(),...record});sheetRef.current?.scrollIntoView({behavior:'smooth',block:'center'});},children:'View sheet'})})
+          ...[record.ownerName,record.date,overtimeDay(record.date),record.start,record.end+(record.end<record.start?' (+1 day)':''),(overtimeMinutes(record.start,record.end)/60).toFixed(2),record.workType+': '+record.work,record.client,record.location,(record.teamNames||[]).join(', ')||'—',record.approvedBy||'—'].map((value,index)=>(0,N.jsx)('td',{'data-label':['Technician','Date','Day','Started','Ended','Total hours','Callout / Project','Client','Location','Team members','Approved by'][index],children:value},index)),
+          (0,N.jsx)('td',{'data-label':'Sheet',children:(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:()=>{setSelected(record);if(record.ownerId===currentUser.id)setForm({...blank(),...record});requestAnimationFrame(()=>sheetRef.current?.scrollIntoView({behavior:'smooth',block:'start'}));},children:'View sheet'})})
         ]},record.id))})
       ]})}):(0,N.jsx)('p',{children:'No saved overtime sheets yet.'})
     ]})
@@ -16711,6 +16741,7 @@ var NominationLoginGreeting=({currentUser,roster})=>{
     };
 
     let handleCopyAsImage = async () => {
+      if(isCapturing)return;
       let hasData = currentDayData.allocations.some(r => r.technicianId || (r.projectLocation && r.projectLocation.trim())) ||
         currentDayData.customSections.some(s => s.rows.some(r => r.technicianId || (r.projectLocation && r.projectLocation.trim())));
 
