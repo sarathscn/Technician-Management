@@ -2954,9 +2954,10 @@ html[data-theme] #printable-allocation-sheet.capturing-image { width:1120px !imp
 .capturing-image .allocation-table .col-transport { width:160px !important; }
 .capturing-image .sheet-title-banner { display:flex !important; flex-direction:row !important; align-items:center !important; gap:24px !important; }
 </style><style>
-.list-pagination{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:12px 14px;background:var(--surface,#f7fbf9);border:1px solid var(--border-color,#c9ddda);border-radius:12px;margin:12px 0;color:var(--text-main);font-size:13px}
-.list-page-size,.list-page-buttons{display:flex;align-items:center;gap:10px}.list-page-size select{width:76px;min-height:38px;border:1px solid #b4cfca;border-radius:8px;background:var(--surface,#fff);color:inherit;padding:6px}.list-page-buttons .btn{min-height:38px;width:auto}.list-page-buttons button:disabled{opacity:.45;cursor:default}
-@media(max-width:600px){.list-pagination{gap:12px;padding:12px}.list-page-buttons{width:100%;justify-content:space-between}.list-page-buttons .btn{padding:8px 12px}}
+.list-pagination{display:flex;align-items:center;justify-content:flex-end;flex-wrap:nowrap;gap:18px;padding:10px 0;margin:8px 0 0;background:transparent;border:0;border-top:1px solid #d5e3df;border-radius:0;box-shadow:none;color:var(--text-muted);font-size:13px;min-width:0}
+.list-page-size,.list-page-buttons{display:flex;align-items:center;gap:8px;white-space:nowrap}.list-page-size select{width:64px;min-height:36px;border:1px solid #b4cfca;border-radius:7px;background:var(--surface,#fff);color:var(--text-main);padding:5px 8px;font:inherit}.list-page-range{white-space:nowrap;font-variant-numeric:tabular-nums}.list-page-arrow{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-width:36px;padding:0;border:1px solid #c9ddda;border-radius:7px;background:transparent;color:var(--text-main);font:24px/1 system-ui;cursor:pointer;box-shadow:none}.list-page-arrow:hover:not(:disabled){background:var(--surface-alt,#e7f1ed)}.list-page-arrow:focus-visible,.list-page-size select:focus-visible{outline:2px solid #1c7568;outline-offset:2px}.list-page-arrow:disabled{opacity:.35;cursor:default}
+@media(max-width:900px){.list-pagination{justify-content:space-between;gap:10px;font-size:12px}.list-page-buttons{gap:4px}.list-page-arrow{width:44px;height:44px;min-width:44px}.list-page-size{gap:6px}.list-page-size select{width:60px;min-height:40px}}
+@media(max-width:350px){.list-pagination{gap:5px}.list-page-size{gap:4px}.list-page-arrow{width:40px;min-width:40px}.list-page-size select{width:56px}}
 </style></head>
   <body>
     <div id="root"></div>
@@ -3213,9 +3214,9 @@ function useListPagination(items,list,filterKey='',user){
  return {...result,list,setPage:page=>setPosition({key:filterKey,page}),setSize:value=>{const next=paginationWindow([],value,1).size;setSize(next);setPosition({key:filterKey,page:1});try{localStorage.setItem(storageKey,String(next));}catch(e){}}};
 }
 var ListPagination=({pagination:p,alwaysVisible=false})=>p.pages<=1&&!alwaysVisible?null:(0,N.jsxs)('nav',{className:'list-pagination','aria-label':p.list+' pagination',children:[
- (0,N.jsxs)('label',{className:'list-page-size',children:['Rows per page',(0,N.jsx)('select',{'aria-label':p.list+' rows per page',value:p.size,onChange:ev=>p.setSize(ev.target.value),children:[10,20,50,100].map(size=>(0,N.jsx)('option',{value:size,children:size},size))})]}),
- (0,N.jsx)('span',{'aria-live':'polite',children:p.total?(p.offset+1)+'–'+Math.min(p.offset+p.size,p.total)+' of '+p.total:'0 results'}),
- (0,N.jsxs)('div',{className:'list-page-buttons',children:[(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:p.page===1,onClick:()=>p.setPage(p.page-1),children:'Previous'}),(0,N.jsx)('span',{children:'Page '+p.page+' of '+p.pages}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:p.page===p.pages,onClick:()=>p.setPage(p.page+1),children:'Next'})]})
+ (0,N.jsxs)('label',{className:'list-page-size',children:['Show',(0,N.jsx)('select',{'aria-label':p.list+' rows per page',value:p.size,onChange:ev=>p.setSize(ev.target.value),children:[10,20,50,100].map(size=>(0,N.jsx)('option',{value:size,children:size},size))})]}),
+ (0,N.jsx)('span',{className:'list-page-range','aria-live':'polite',children:p.total?(p.offset+1)+'–'+Math.min(p.offset+p.size,p.total)+' of '+p.total:'0 results'}),
+ (0,N.jsxs)('div',{className:'list-page-buttons',children:[(0,N.jsx)('button',{type:'button',className:'list-page-arrow','aria-label':'Previous page',title:'Previous page',disabled:p.page===1,onClick:()=>p.setPage(p.page-1),children:'‹'}),(0,N.jsx)('button',{type:'button',className:'list-page-arrow','aria-label':'Next page',title:'Next page',disabled:p.page===p.pages,onClick:()=>p.setPage(p.page+1),children:'›'})]})
 ]});
 
 var OvertimeView=({currentUser,technicians=[],onShowToast})=>{
