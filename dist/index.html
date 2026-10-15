@@ -3306,14 +3306,14 @@ var OvertimeView=({currentUser,technicians=[],onShowToast})=>{
     !isTechnician&&selected&&(0,N.jsxs)('section',{className:'callouts-header-card',children:[(0,N.jsxs)('div',{className:'dashboard-heading',children:[(0,N.jsx)('h3',{children:'Overtime sheet'}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:()=>setSelected(null),children:'Close sheet'})]}),(0,N.jsx)('div',{ref:sheetRef,className:'ot-sheet',dangerouslySetInnerHTML:{__html:overtimeSheetHTML(selected)}}),(0,N.jsxs)('div',{className:'ot-actions',children:[(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:print,children:'Save as PDF'}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:copy,children:'Copy as image'})]})]}),
     (0,N.jsxs)('section',{className:'callouts-header-card ot-saved',children:[
       (0,N.jsxs)('div',{className:'ot-export-heading',children:[(0,N.jsx)('h3',{children:isTechnician?'My overtime sheets':'All users’ overtime'}),(0,N.jsxs)('div',{className:'ot-actions',children:[(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:!visible.length,onClick:exportAll,children:'Export all as PDF'}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:!visible.length,onClick:exportCSV,children:'Export all as CSV'})]})]}),
-      (0,N.jsx)(ListPagination,{pagination}),
       visible.length?(0,N.jsx)('div',{className:'ot-table-scroll',tabIndex:0,'aria-label':'Overtime records table',children:(0,N.jsxs)('table',{className:'ot-records-table',children:[
         (0,N.jsx)('thead',{children:(0,N.jsx)('tr',{children:['Technician','Date','Day','Started','Ended','Total hours','Callout / Project','Client','Location','Team members','Approved by','Sheet'].map(label=>(0,N.jsx)('th',{scope:'col',children:label},label))})}),
         (0,N.jsx)('tbody',{children:pagination.items.map(record=>(0,N.jsxs)('tr',{children:[
           ...[record.ownerName,record.date,overtimeDay(record.date),record.start,record.end+(record.end<record.start?' (+1 day)':''),(overtimeMinutes(record.start,record.end)/60).toFixed(2),record.workType+': '+record.work,record.client,record.location,(record.teamNames||[]).join(', ')||'—',record.approvedBy||'—'].map((value,index)=>(0,N.jsx)('td',{'data-label':['Technician','Date','Day','Started','Ended','Total hours','Callout / Project','Client','Location','Team members','Approved by'][index],children:value},index)),
           (0,N.jsx)('td',{'data-label':'Sheet',children:(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:()=>{setSelected(record);if(record.ownerId===currentUser.id)setForm({...blank(),...record});requestAnimationFrame(()=>sheetRef.current?.scrollIntoView({behavior:'smooth',block:'start'}));},children:'View sheet'})})
         ]},record.id))})
-      ]})}):(0,N.jsx)('p',{children:'No saved overtime sheets yet.'})
+      ]})}):(0,N.jsx)('p',{children:'No saved overtime sheets yet.'}),
+      (0,N.jsx)(ListPagination,{pagination,alwaysVisible:true})
     ]})
   ]});
 };
@@ -12622,6 +12622,7 @@ var UserManagementView=props=>window.TMCloud?(0,N.jsx)(CloudAccounts,props):(0,N
 var CloudAccounts=({currentUser,onShowToast})=>{
  const h=_.createElement;
  const [users,setUsers]=_.useState([]),[busy,setBusy]=_.useState(false),[edit,setEdit]=_.useState(null),[error,setError]=_.useState('');
+ const pagination=useListPagination(users,'Accounts','',currentUser);
  const blank={name:'',username:'',email:'',password:'',technician_id:'',role:currentUser.role==='Coordinator'?'Technician':'Coordinator',status:'Active'};
  const [form,setForm]=_.useState(blank),[showForm,setShowForm]=_.useState(false),[audit,setAudit]=_.useState(null);
  const allowed=u=>currentUser.role==='Administrator'||currentUser.role==='Admin'&&['Coordinator','Technician'].includes(u.role)||currentUser.role==='Coordinator'&&u.role==='Technician';
@@ -12639,7 +12640,7 @@ var CloudAccounts=({currentUser,onShowToast})=>{
   audit&&h('p',{role:'status',className:'ot-note'},'Checked '+audit.checked+' technicians: '+audit.existing+' existing logins, '+audit.credentials.length+' created, '+audit.skipped+' admin/coordinator records excluded, '+audit.inactive+' suspended. '+(audit.failed.length?'Needs attention: '+audit.failed.join(', '):'No missing logins remain.')),
   (showForm||edit)&&h('form',{id:'create-account-form',onSubmit:save,autoComplete:'off',className:'cloud-account-form'},h('h3',null,edit?'Edit account':'Create account'),field('name','Full name'),field('username','Login username'),field('email','Recovery email (optional)','email'),field('password',edit?'New password (optional)':'Password','password'),select('role','Account role',['Administrator','Admin','Coordinator','Technician'].filter(role=>allowed({role}))),field('technician_id','Technician ID (for linked staff)'),edit&&select('status','Account status',['Active','Suspended']),h('div',{className:'cloud-account-buttons'},h('button',{type:'submit',className:'btn btn-primary',disabled:busy},busy?'Saving…':edit?'Save changes':'Create account'),h('button',{type:'button',className:'btn btn-outline',disabled:busy,onClick:reset},'Cancel'))),
   h('div',{className:'cloud-account-list-heading'},h('h3',null,'Accounts ('+users.length+')')),
-  h(ResponsiveTable,{className:'callouts-table cloud-account-table'},h('thead',null,h('tr',null,...['Name','Username','Role','Status','Actions'].map(v=>h('th',{key:v},v)))),h('tbody',null,...users.map(user=>h('tr',{key:user.id},h('td',{'data-label':'Name'},user.name),h('td',{'data-label':'Username'},user.username),h('td',{'data-label':'Role'},user.role),h('td',{'data-label':'Status'},h('span',{className:'cloud-account-status'},user.status)),h('td',{'data-label':'Actions'},user.id===currentUser.id?h('span',{className:'cloud-account-self'},'Your account'):h('div',{className:'cloud-account-row-actions'},h('button',{className:'btn btn-outline',disabled:busy||!allowed(user),onClick:()=>{setShowForm(true);setEdit(user);setForm({...blank,...user,password:''});}},'Edit / reset password'),h('button',{className:'btn btn-danger',disabled:busy||!allowed(user),onClick:()=>suspend(user)},'Suspend'))))),!users.length&&h('tr',null,h('td',{colSpan:5},error?'Accounts could not be loaded. Use Retry above.':'No accounts to display.')))));
+  h(ResponsiveTable,{className:'callouts-table cloud-account-table'},h('thead',null,h('tr',null,...['Name','Username','Role','Status','Actions'].map(v=>h('th',{key:v},v)))),h('tbody',null,...pagination.items.map(user=>h('tr',{key:user.id},h('td',{'data-label':'Name'},user.name),h('td',{'data-label':'Username'},user.username),h('td',{'data-label':'Role'},user.role),h('td',{'data-label':'Status'},h('span',{className:'cloud-account-status'},user.status)),h('td',{'data-label':'Actions'},user.id===currentUser.id?h('span',{className:'cloud-account-self'},'Your account'):h('div',{className:'cloud-account-row-actions'},h('button',{className:'btn btn-outline',disabled:busy||!allowed(user),onClick:()=>{setShowForm(true);setEdit(user);setForm({...blank,...user,password:''});}},'Edit / reset password'),h('button',{className:'btn btn-danger',disabled:busy||!allowed(user),onClick:()=>suspend(user)},'Suspend'))))),!users.length&&h('tr',null,h('td',{colSpan:5},error?'Accounts could not be loaded. Use Retry above.':'No accounts to display.')))),h(ListPagination,{pagination,alwaysVisible:true}));
 };
 var LocalUserManagementView = ({
   currentUser,
@@ -12797,6 +12798,7 @@ var LocalUserManagementView = ({
     return true;
   });
 
+  const pagination=useListPagination(filteredUsers,'Accounts',JSON.stringify([roleFilter,statusFilter,searchQuery]),currentUser);
   if (!isSuperAdmin) {
     return (0, N.jsx)("div", {
       className: "sheet-wrapper user-management-page",
@@ -12947,7 +12949,7 @@ var LocalUserManagementView = ({
                     children: (0, N.jsx)("td", { colSpan: 7, style: { textAlign: "center", padding: "30px", color: "var(--text-muted)" }, children: "No users found matching search criteria." })
                   })
                 ) : (
-                  filteredUsers.map((u, idx) => {
+                  pagination.items.map((u, idx) => {
                     let rColor = u.role === 'Administrator' ? '#0284C7' : (u.role === 'Coordinator' ? '#10B981' : '#6B7280');
                     let rBg = u.role === 'Administrator' ? '#EFF6FF' : (u.role === 'Coordinator' ? '#ECFDF5' : '#F3F4F6');
                     let isSuspended = u.status === 'Suspended';
@@ -12956,7 +12958,7 @@ var LocalUserManagementView = ({
                       key: u.id,
                       style: { opacity: isSuspended ? 0.6 : 1 },
                       children: [
-                        (0, N.jsx)("td", { style: { textAlign: "center", color: "var(--text-muted)", fontWeight: 600 }, children: idx + 1 }),
+                        (0, N.jsx)("td", { style: { textAlign: "center", color: "var(--text-muted)", fontWeight: 600 }, children: pagination.offset + idx + 1 }),
                         (0, N.jsx)("td", {
                           style: { fontWeight: 700, color: "var(--text-main)" },
                           children: (0, N.jsxs)("div", {
@@ -13022,6 +13024,8 @@ var LocalUserManagementView = ({
             ]
           })
         }),
+
+        (0,N.jsx)(ListPagination,{pagination,alwaysVisible:true}),
 
         // Permissions Matrix Reference
         (0, N.jsxs)("div", {
@@ -13290,7 +13294,6 @@ var CalloutsManagementView = ({
   return (0, N.jsxs)("div", {
     className: "callouts-container",
     children: [
-      (0,N.jsx)(ListPagination,{pagination}),
       (0, N.jsxs)("div", {
         className: "callouts-header-card",
         children: [
@@ -13755,7 +13758,8 @@ var CalloutsManagementView = ({
                 (0, N.jsxs)("span", { children: ["Matching ", sorted.length, " of ", totalCount, " callouts"] }),
                 (0, N.jsxs)("span", { children: ["Active filters: Status (", statusFilter, "), Priority (", priorityFilter, "), Tech (", technicianFilter === 'All' ? 'All' : 'Selected', ")"] })
               ]
-            })
+            }),
+            (0,N.jsx)(ListPagination,{pagination,alwaysVisible:true})
           ]
         })
       }),
