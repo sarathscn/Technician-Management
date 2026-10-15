@@ -3015,7 +3015,7 @@ function technicianAccountUsername(technician) {
   const name=String(technician.name||'').trim().toLowerCase().replace(/[^a-z0-9._-]/g,'')||'technician';
   const id=String(technician.id||'').trim();
   if(!/^\d{1,5}$/.test(id))throw Error('Technician ID must contain 1 to 5 digits.');
-  return name+'@'+id.toLowerCase();
+  return name.charAt(0).toUpperCase()+name.slice(1)+'@'+id.toLowerCase();
 }
 function technicianInitialPassword(technician) {const username=technicianAccountUsername(technician);return username.charAt(0).toUpperCase()+username.slice(1);}
 function provisionTechnicianAccounts(previous,next,users) {
@@ -3023,7 +3023,7 @@ function provisionTechnicianAccounts(previous,next,users) {
   const added=next.filter(t=>!previous.some(old=>String(old.id)===String(t.id)));
   for(const tech of added) {
     const username=technicianAccountUsername(tech);
-    const existing=result.find(u=>normalizeAccount(u).username===username);
+    const existing=result.find(u=>normalizeAccount(u).username.toLowerCase()===username.toLowerCase());
     if(existing){if(String(existing.technicianNumber||existing.technicianId)!==String(tech.id))throw Error('Username '+username+' already belongs to another account.');continue;}
     // Preserve any explicitly linked account, including its changed password and role.
     if(result.some(u=>String(u.technicianId||'')===String(tech.id)))continue;
@@ -3034,8 +3034,8 @@ function provisionTechnicianAccounts(previous,next,users) {
 
 function getTechnicianUsername(tech) {
   if(!tech)return '';
-  try {const users=JSON.parse(localStorage.getItem('amc_system_users')||'[]');const user=users.find(u=>String(u.technicianNumber||u.technicianId||u.username?.split('@')[1]).replace(/^0+(?=\d)/,'')===String(tech.id).replace(/^0+(?=\d)/,''));if(user)return normalizeAccount(user).username;}catch(e){}
-  return tech.username||String(tech.name||'technician').toLowerCase().replace(/[^a-z0-9._-]/g,'')+'@'+tech.id;
+  try {const users=JSON.parse(localStorage.getItem('amc_system_users')||'[]');const user=users.find(u=>String(u.technicianNumber||u.technicianId||u.username?.split('@')[1]).replace(/^0+(?=\d)/,'')===String(tech.id).replace(/^0+(?=\d)/,''));if(user){const username=normalizeAccount(user).username;return username.charAt(0).toUpperCase()+username.slice(1);}}catch(e){}
+  const username=tech.username||technicianAccountUsername(tech);return username.charAt(0).toUpperCase()+username.slice(1);
 }
 function migrateAccountStorage() {
   for(const storage of [localStorage,sessionStorage]) {
