@@ -8,13 +8,9 @@ export function sameTechnician(left: unknown, right: unknown): boolean {
 export function technicianSnapshot(records: any[], technicianId: unknown, ownerId: string): any[] {
  return records.flatMap(record=>{
   const payload=record.payload||{};
-  if(record.kind==='allocation_day'){
-   const own=(row: any)=>sameTechnician(row.technicianId,technicianId);
-   return [{...record,payload:{...payload,
-    allocations:(payload.allocations||[]).filter(own),
-    customSections:(payload.customSections||[]).map((section: any)=>({...section,rows:(section.rows||[]).filter(own)})).filter((section: any)=>section.rows.length)
-   }}];
-  }
+  // The daily allocation is a shared read-only team schedule for technicians.
+  // Save permissions remain enforced independently by tm_save_record.
+  if(record.kind==='allocation_day')return [record];
   // Reassignment replaces the original technician's access, as in the dashboard.
   if(record.kind==='callout')return sameTechnician(payload.rescheduledTechnicianId||payload.assignedTechnicianId,technicianId)?[record]:[];
   if(['holiday','team_settings'].includes(record.kind)||

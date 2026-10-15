@@ -14,12 +14,11 @@ test('assigned callouts are returned; reassigned and other technicians calls sta
  assert.deepEqual(technicianSnapshot(records,'170','u').map(r=>r.id),['own','incoming']);
  assert.equal(technicianSnapshot(records,null,'u').length,0);
 });
-test('main and custom allocations include only own rows and preserve dates and metadata',()=>{
+test('technicians see the entire daily allocation even when not allocated',()=>{
  const day={kind:'allocation_day',id:'2026-10-16',version:3,payload:{allocations:[{technicianId:'089'},{technicianId:'170'},{technicianId:''}],customSections:[{title:'Site',rows:[{technicianId:89},{technicianId:'181'}]},{title:'Private',rows:[{technicianId:'170'}]}]}};
- const before=JSON.stringify(day),[visible]=technicianSnapshot([day],'89','u');
- assert.equal(visible.id,'2026-10-16');assert.equal(visible.version,3);
- assert.deepEqual(visible.payload.allocations,[{technicianId:'089'}]);
- assert.deepEqual(visible.payload.customSections,[{title:'Site',rows:[{technicianId:89}]}]);
+ const before=JSON.stringify(day),[visible]=technicianSnapshot([day],'999','u');
+ assert.deepEqual(visible,day);
+ assert.deepEqual(technicianSnapshot([day],'170','u'),[day]);
  assert.equal(JSON.stringify(day),before);
 });
 test('other records retain ownership restrictions',()=>{
