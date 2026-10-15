@@ -31,3 +31,11 @@ test('filters and size changes reset to first page; deletion clamps page',()=>{
  assert.equal(h.storage.get('amc_page_size_alice_Technicians'),'10');
  assert.equal(h.storage.has('amc_page_size_bob_Technicians'),false);
 });
+
+test('pagination controls stay hidden for empty and single-page lists',()=>{
+ const component=html.slice(html.indexOf('var ListPagination='),html.indexOf('var OvertimeView='));
+ const element=(type,props)=>({type,props});
+ const Pagination=new Function('N',component+'return ListPagination;')({jsx:element,jsxs:element});
+ for(const total of [0,1,20])assert.equal(Pagination({pagination:{...paginationWindow(rows.slice(0,total),20,1),list:'Leaves'}}),null);
+ assert.equal(Pagination({pagination:{...paginationWindow(rows,20,1),list:'Leaves'}}).type,'nav');
+});
