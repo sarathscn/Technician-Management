@@ -83,3 +83,11 @@ test('routine cloud notifications stay quiet while errors remain visible',async(
  a.cloud.banner('Saving changes to Supabase…');a.cloud.banner('Saved to Supabase');assert.equal(created,0);
  a.cloud.banner('Could not save your changes.',true);assert.equal(created,1);
 });
+test('successful technician deletion removes linked users and picker entries from the local cache',async()=>{
+ const me={id:'u',role:'Administrator',username:'admin',status:'Active'};
+ const a=app({handler:(_,body)=>body.action==='snapshot'?{status:200,ok:true,json:async()=>({profile:me,records:[{kind:'technician',id:'170',version:1,payload:{id:'170',name:'Deleted Tech'}}],users:[me,{id:'target',role:'Technician',username:'tech',status:'Active',technician_id:'170'}],technicians:[{id:'170',name:'Deleted Tech'}]})}:body.action==='save_record'?{status:200,ok:true,json:async()=>({record:{deleted:true,deleted_user_ids:['target']}})}:null});
+ await a.cloud.start();a.localStorage.setItem('amc_technicians','[]');
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(JSON.parse(a.localStorage.getItem('amc_system_users')).map(user=>user.id),['u']);
+ assert.deepEqual(JSON.parse(a.localStorage.getItem('amc_technician_directory')),[]);
+});

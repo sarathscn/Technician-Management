@@ -3,7 +3,7 @@ begin;
 create or replace function public.tm_save_record(
  p_actor uuid,p_kind text,p_id text,p_payload jsonb,p_version bigint,p_delete boolean default false
 ) returns jsonb language plpgsql security invoker set search_path='' as $$
-declare actor public.tm_profiles; old_record public.tm_records; saved public.tm_records;
+declare actor public.tm_profiles; old_record public.tm_records; saved public.tm_records; deleted_users uuid[] := '{}';
 begin
  select * into actor from public.tm_profiles where id=p_actor and status='Active';
  if not found then raise exception 'Account inactive'; end if;
@@ -26,8 +26,17 @@ begin
   end if;
  end if;
  if p_delete then
+  if p_kind='technician' then
+   -- Remove linked application accounts in the same transaction. Historical
+   -- payloads retain ownerId/ownerName; only the live profile FK is detached.
+   select coalesce(array_agg(id),'{}'::uuid[]) into deleted_users
+   from public.tm_profiles where role='Technician'
+    and ltrim(technician_id,'0')=ltrim(p_id,'0');
+   update public.tm_records set owner_id=null where owner_id=any(deleted_users);
+   delete from public.tm_profiles where id=any(deleted_users);
+  end if;
   delete from public.tm_records where kind=p_kind and id=p_id;
-  return jsonb_build_object('deleted',true,'kind',p_kind,'id',p_id);
+  return jsonb_build_object('deleted',true,'kind',p_kind,'id',p_id,'deleted_user_ids',to_jsonb(deleted_users));
  end if;
  if jsonb_typeof(p_payload)<>'object' or p_payload ?| array['password','access_token','refresh_token'] then raise exception 'Invalid record'; end if;
  insert into public.tm_records(kind,id,owner_id,technician_id,payload)

@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
 import { technicianSnapshot, technicianDirectory } from './visibility.ts';
+import { deleteLinkedAuthUsers } from './account-cleanup.ts';
 
 // Deploy with gateway JWT verification disabled: login is public, every other
 // action verifies the access token and active profile explicitly below.
@@ -85,6 +86,10 @@ Deno.serve(async request=>{
   if(input.action==='save_record'){
    const {data,error}=await admin.rpc('tm_save_record',{p_actor:actor.id,p_kind:input.kind,p_id:input.id,p_payload:input.payload||{},p_version:Number(input.version||0),p_delete:!!input.deleted});
    if(error)return reply({error:error.message.includes('CONFLICT')?'Another user updated this record. Reload before saving.':'Database save denied or invalid record.'},error.message.includes('CONFLICT')?409:403);
+   if(input.kind==='technician'&&input.deleted){
+    const failed=await deleteLinkedAuthUsers(admin.auth.admin,data.deleted_user_ids||[]);
+    return reply({record:data,...(failed.length?{accountWarning:'Technician and linked user access removed. Authentication account cleanup failed; contact the administrator to finish removing the disabled login.'}:{})});
+   }
    if(input.kind==='technician'&&!input.deleted&&['Administrator','Admin','Coordinator'].includes(actor.role)){
     try{const credential=await provisionTechnician(data.payload);return reply({record:data,credentials:credential?[credential]:[]});}
     catch{return reply({record:data,accountWarning:'Technician saved, but login creation failed. Use Create missing technician logins in User Management to retry.'});}
