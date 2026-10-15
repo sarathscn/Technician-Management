@@ -7,7 +7,13 @@ const url = Deno.env.get('SUPABASE_URL')!;
 const publicKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 const secret = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const admin = createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
-const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json'}});
+const capitalUsername=(username:string)=>username?username.charAt(0).toUpperCase()+username.slice(1):username;
+const displayAccount=(account:any)=>account?.role==='Technician'?{...account,username:capitalUsername(account.username)}:account;
+const reply=(body:any,status=200)=>new Response(JSON.stringify({...body,
+ ...(body.profile?{profile:displayAccount(body.profile)}:{}),
+ ...(body.users?{users:body.users.map(displayAccount)}:{}),
+ ...(body.credentials?{credentials:body.credentials.map((account:any)=>({...account,username:capitalUsername(account.username)}))}:{})
+}),{status,headers:{...cors,'Content-Type':'application/json'}});
 const manage=(actor:string,target:string)=>actor==='Administrator'||actor==='Admin'&&['Coordinator','Technician'].includes(target)||actor==='Coordinator'&&target==='Technician';
 const fail=(error:unknown)=>{if(error)throw Error('Database operation failed.');};
 async function provisionTechnician(tech:any){
