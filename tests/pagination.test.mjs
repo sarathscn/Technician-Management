@@ -35,7 +35,7 @@ test('filters and size changes reset to first page; deletion clamps page',()=>{
 test('pagination controls stay hidden for empty and single-page lists',()=>{
  const component=html.slice(html.indexOf('var ListPagination='),html.indexOf('var OvertimeView='));
  const element=(type,props)=>({type,props});
- const Pagination=new Function('N',component+'return ListPagination;')({jsx:element,jsxs:element});
+ const Pagination=new Function('N','ThemedSelect',component+'return ListPagination;')({jsx:element,jsxs:element},'themed-select');
  assert.equal(Pagination({pagination:{...paginationWindow(rows.slice(0,11),20,1),list:'Technicians'},alwaysVisible:true}).type,'nav');
  for(const total of [0,1,20])assert.equal(Pagination({pagination:{...paginationWindow(rows.slice(0,total),20,1),list:'Leaves'}}),null);
  assert.equal(Pagination({pagination:{...paginationWindow(rows,20,1),list:'Leaves'}}).type,'nav');
