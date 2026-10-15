@@ -3212,7 +3212,7 @@ function useListPagination(items,list,filterKey='',user){
  (0,_.useEffect)(()=>{setPosition(old=>old.key===filterKey&&old.page===result.page?old:{key:filterKey,page:result.page});},[filterKey,result.page]);
  return {...result,list,setPage:page=>setPosition({key:filterKey,page}),setSize:value=>{const next=paginationWindow([],value,1).size;setSize(next);setPosition({key:filterKey,page:1});try{localStorage.setItem(storageKey,String(next));}catch(e){}}};
 }
-var ListPagination=({pagination:p})=>(0,N.jsxs)('nav',{className:'list-pagination','aria-label':p.list+' pagination',children:[
+var ListPagination=({pagination:p})=>p.pages<=1?null:(0,N.jsxs)('nav',{className:'list-pagination','aria-label':p.list+' pagination',children:[
  (0,N.jsxs)('label',{className:'list-page-size',children:['Rows per page',(0,N.jsx)('select',{'aria-label':p.list+' rows per page',value:p.size,onChange:ev=>p.setSize(ev.target.value),children:[10,20,50,100].map(size=>(0,N.jsx)('option',{value:size,children:size},size))})]}),
  (0,N.jsx)('span',{'aria-live':'polite',children:p.total?(p.offset+1)+'–'+Math.min(p.offset+p.size,p.total)+' of '+p.total:'0 results'}),
  (0,N.jsxs)('div',{className:'list-page-buttons',children:[(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:p.page===1,onClick:()=>p.setPage(p.page-1),children:'Previous'}),(0,N.jsx)('span',{children:'Page '+p.page+' of '+p.pages}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:p.page===p.pages,onClick:()=>p.setPage(p.page+1),children:'Next'})]})
