@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
-import { technicianSnapshot, technicianDirectory } from './visibility.ts';
+import { technicianSnapshot, technicianDirectory, sameTechnician } from './visibility.ts';
 import { deleteLinkedAuthUsers } from './account-cleanup.ts';
+import { auditTechnicianLogins } from './login-audit.ts';
 
 // Deploy with gateway JWT verification disabled: login is public, every other
 // action verifies the access token and active profile explicitly below.
@@ -68,10 +69,18 @@ Deno.serve(async request=>{
   }
   if(input.action==='provision_technicians'){
    if(!['Administrator','Admin','Coordinator'].includes(actor.role))return reply({error:'Access denied'},403);
-   const {data,error}=await admin.from('tm_records').select('payload').eq('kind','technician');fail(error);
-   const credentials=[];const failed=[];
-   for(const row of data||[]){try{const account=await provisionTechnician(row.payload);if(account)credentials.push(account);}catch{failed.push(String(row.payload.id));}}
-   return reply({credentials,failed});
+   const technicians=[];
+   for(let offset=0;;offset+=500){
+    const {data,error}=await admin.from('tm_records').select('id,payload').eq('kind','technician').order('id').range(offset,offset+499);fail(error);
+    technicians.push(...(data||[]).map(row=>({...row.payload,id:row.id})));if((data||[]).length<500)break;
+   }
+   const profiles=[];
+   for(let offset=0;;offset+=500){
+    const {data,error}=await admin.from('tm_profiles').select('id,role,status,technician_id').order('id').range(offset,offset+499);fail(error);
+    profiles.push(...(data||[]));if((data||[]).length<500)break;
+   }
+   const result=await auditTechnicianLogins(technicians,async id=>profiles.filter(profile=>sameTechnician(profile.technician_id,id)),id=>admin.auth.admin.getUserById(id),provisionTechnician);
+   return reply(result);
   }
   if(input.action==='snapshot'){
    const manager=['Administrator','Admin','Coordinator'].includes(actor.role);
