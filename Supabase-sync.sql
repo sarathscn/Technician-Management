@@ -14,8 +14,11 @@ begin
   if p_delete or p_kind not in ('overtime','leave_request','technician') then raise exception 'Access denied'; end if;
   if p_kind='technician' then
    if p_id<>actor.technician_id or old_record.id is null then raise exception 'Access denied'; end if;
-   if (p_payload - array['passes','cprNumber','cprExpiryDate','visaNumber','visaExpiryDate']) is distinct from
-      (old_record.payload - array['passes','cprNumber','cprExpiryDate','visaNumber','visaExpiryDate']) then raise exception 'Only own documents can be changed'; end if;
+   if (p_payload - array['name','mobileNumber','role','passes','cprNumber','cprExpiryDate','visaNumber','visaExpiryDate']) is distinct from
+      (old_record.payload - array['name','mobileNumber','role','passes','cprNumber','cprExpiryDate','visaNumber','visaExpiryDate']) then raise exception 'Only own personal details and documents can be changed'; end if;
+   if length(trim(coalesce(p_payload->>'name','')))=0 or length(p_payload->>'name')>100 or
+      (coalesce(p_payload->>'mobileNumber','')<>'' and p_payload->>'mobileNumber' !~ '^\d{8}$') or
+      length(coalesce(p_payload->>'role',''))>100 then raise exception 'Invalid personal details'; end if;
   else
    if old_record.id is not null and old_record.owner_id is distinct from actor.id then raise exception 'Access denied'; end if;
    if (p_payload->>'ownerId') is distinct from actor.id::text or coalesce(p_payload->>'ownerTechnicianId',p_payload->>'technicianId','')<>actor.technician_id then raise exception 'Ownership mismatch'; end if;

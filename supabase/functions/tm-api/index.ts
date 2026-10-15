@@ -53,6 +53,17 @@ Deno.serve(async request=>{
   const {data:actor,error:actorError}=await admin.from('tm_profiles').select('*').eq('id',verified.user.id).eq('status','Active').single();
   if(actorError||!actor)return reply({error:'Account inactive'},403);
   if(input.action==='me')return reply({profile:actor});
+  if(input.action==='update_self'){
+   const name=String(input.name||'').trim(),mobile=String(input.mobileNumber||'').trim(),specialization=String(input.specialization||'').trim();
+   if(!name||name.length>100||mobile&&!/^\d{8}$/.test(mobile)||specialization.length>100)return reply({error:'Enter a name (up to 100 characters) and an optional 8-digit mobile number.'},400);
+   const {data:tech,error:lookup}=await admin.from('tm_records').select('*').eq('kind','technician').eq('id',actor.technician_id).maybeSingle();fail(lookup);
+   if(tech){
+    const {error}=await admin.rpc('tm_save_record',{p_actor:actor.id,p_kind:'technician',p_id:tech.id,p_payload:{...tech.payload,name,mobileNumber:mobile,role:specialization},p_version:Number(input.version),p_delete:false});
+    if(error)return reply({error:error.message.includes('CONFLICT')?'Your details changed elsewhere. Reload before saving.':'Could not save your details.'},error.message.includes('CONFLICT')?409:403);
+   }
+   const {data:profile,error}=await admin.from('tm_profiles').update({name}).eq('id',actor.id).select('*').single();fail(error);
+   return reply({profile});
+  }
   if(input.action==='provision_technicians'){
    if(!['Administrator','Admin','Coordinator'].includes(actor.role))return reply({error:'Access denied'},403);
    const {data,error}=await admin.from('tm_records').select('payload').eq('kind','technician');fail(error);
