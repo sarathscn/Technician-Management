@@ -2972,6 +2972,10 @@ html[data-theme] #printable-allocation-sheet.capturing-image { width:1120px !imp
 .saturday-summary .summary-card:last-child .summary-card-count{white-space:normal!important;overflow:visible!important;overflow-wrap:anywhere}
 .saturday-summary .summary-card:last-child .summary-card-label{text-align:right}
 }
+
+.list-page-size .pagination-size-select{width:68px;flex:0 0 68px}
+.list-page-size .pagination-size-select .custom-select-trigger{padding:0 8px!important;min-height:36px;background:var(--surface)!important;color:var(--text-main)!important}
+@media(max-width:900px){.list-page-size .pagination-size-select .custom-select-trigger{min-height:40px}}
 </style></head>
   <body>
     <div id="root"></div>
@@ -3228,7 +3232,7 @@ function useListPagination(items,list,filterKey='',user){
  return {...result,list,setPage:page=>setPosition({key:filterKey,page}),setSize:value=>{const next=paginationWindow([],value,1).size;setSize(next);setPosition({key:filterKey,page:1});try{localStorage.setItem(storageKey,String(next));}catch(e){}}};
 }
 var ListPagination=({pagination:p,alwaysVisible=false})=>p.pages<=1&&!alwaysVisible?null:(0,N.jsxs)('nav',{className:'list-pagination','aria-label':p.list+' pagination',children:[
- (0,N.jsxs)('label',{className:'list-page-size',children:['Show',(0,N.jsx)('select',{'aria-label':p.list+' rows per page',value:p.size,onChange:ev=>p.setSize(ev.target.value),children:[10,20,50,100].map(size=>(0,N.jsx)('option',{value:size,children:size},size))})]}),
+ (0,N.jsxs)('label',{className:'list-page-size',children:['Show',(0,N.jsx)(ThemedSelect,{className:'pagination-size-select','aria-label':p.list+' rows per page',value:p.size,onChange:ev=>p.setSize(ev.target.value),children:[10,20,50,100].map(size=>(0,N.jsx)('option',{value:size,children:size},size))})]}),
  (0,N.jsx)('span',{className:'list-page-range','aria-live':'polite',children:p.total?(p.offset+1)+'–'+Math.min(p.offset+p.size,p.total)+' of '+p.total:'0 results'}),
  (0,N.jsxs)('div',{className:'list-page-buttons',children:[(0,N.jsx)('button',{type:'button',className:'list-page-arrow','aria-label':'Previous page',title:'Previous page',disabled:p.page===1,onClick:()=>p.setPage(p.page-1),children:'‹'}),(0,N.jsx)('button',{type:'button',className:'list-page-arrow','aria-label':'Next page',title:'Next page',disabled:p.page===p.pages,onClick:()=>p.setPage(p.page+1),children:'›'})]})
 ]});
