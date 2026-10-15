@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
+import { technicianSnapshot, technicianDirectory } from './visibility.ts';
 
 // Deploy with gateway JWT verification disabled: login is public, every other
 // action verifies the access token and active profile explicitly below.
@@ -77,16 +78,9 @@ Deno.serve(async request=>{
    // Page the result; PostgREST defaults to 1000 records.
    const records:Record<string,unknown>[]=[];
    for(let offset=0;;offset+=500){const {data,error}=await query.range(offset,offset+499);fail(error);records.push(...(data||[]));if((data||[]).length<500)break;}
-   const filtered=manager?records:records.flatMap((record:any)=>{
-    if(record.kind==='allocation_day'){
-     const own=(row:any)=>String(row.technicianId)===String(actor.technician_id);
-     return [{...record,payload:{...record.payload,allocations:(record.payload.allocations||[]).filter(own),customSections:(record.payload.customSections||[]).map((s:any)=>({...s,rows:(s.rows||[]).filter(own)})).filter((s:any)=>s.rows.length)}}];
-    }
-    if(['holiday','team_settings'].includes(record.kind)||['technician','leave'].includes(record.kind)&&record.technician_id===actor.technician_id||['leave_request','overtime'].includes(record.kind)&&record.owner_id===actor.id)return [record];
-    return [];
-   });
+   const filtered=manager?records:technicianSnapshot(records,actor.technician_id,actor.id);
    const {data:profiles,error}=await admin.from('tm_profiles').select('id,username,name,technician_id,role,status,created_at');fail(error);
-   return reply({profile:actor,records:filtered,users:manager?profiles:(profiles||[]).filter(p=>p.id===actor.id||p.role==='Coordinator'&&p.status==='Active')});
+   return reply({profile:actor,records:filtered,technicians:technicianDirectory(records),users:manager?profiles:(profiles||[]).filter(p=>p.id===actor.id||p.role==='Coordinator'&&p.status==='Active')});
   }
   if(input.action==='save_record'){
    const {data,error}=await admin.rpc('tm_save_record',{p_actor:actor.id,p_kind:input.kind,p_id:input.id,p_payload:input.payload||{},p_version:Number(input.version||0),p_delete:!!input.deleted});
