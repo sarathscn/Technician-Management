@@ -22,7 +22,7 @@ async function provisionTechnician(tech:any){
  const {data:linked,error:lookup}=await admin.from('tm_profiles').select('id').eq('technician_id',id).limit(1);fail(lookup);
  if(linked?.length)return null;
  const username=(String(tech.name).trim().toLowerCase().replace(/[^a-z0-9._-]/g,'')||'technician')+'@'+id;
- const password='Tm!'+crypto.randomUUID().replaceAll('-','').slice(0,18);
+ const password=capitalUsername(username);
  const {data,error}=await admin.auth.admin.createUser({email:username.replace('@','.')+'@technician-management.invalid',password,email_confirm:true});
  if(error||!data.user)throw Error('Could not provision technician login');
  const {error:profileError}=await admin.from('tm_profiles').insert({id:data.user.id,username,name:String(tech.name).trim(),technician_id:id,role:'Technician',status:'Active'});
