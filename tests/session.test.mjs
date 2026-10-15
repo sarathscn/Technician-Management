@@ -123,3 +123,13 @@ test('edits made while a snapshot is in flight are not overwritten',async()=>{
  await new Promise(resolve=>setImmediate(resolve));release();await pending;
  assert.ok(a.localStorage.getItem('amc_day_allocations').includes('New edit'));assert.equal(a.events.length,0);assert.equal(a.reloads(),0);
 });
+
+
+test('new overtime invitations notify React even when all existing records are unchanged',async()=>{
+ let invitations=[];const profile={id:'u',username:'tech',role:'Technician',status:'Active'};
+ const a=app({busyUI:false,handler:(_,body)=>body.action==='snapshot'?{status:200,ok:true,json:async()=>({profile,users:[profile],technicians:[],records:[],overtimeInvitations:invitations})}:null});
+ await a.cloud.start();invitations=[{id:'shared',ownerName:'Sender',teamIds:['170']}];await a.tick(15000);
+ assert.equal(a.events.at(-1).type,'tm-cloud-update');assert.equal(a.reloads(),0);
+ assert.equal(JSON.parse(a.localStorage.getItem('amc_overtime_invitations'))[0].id,'shared');
+ a.cloud.signOut();assert.equal(a.localStorage.getItem('amc_overtime_invitations'),null);
+});

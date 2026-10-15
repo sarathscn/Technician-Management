@@ -12,7 +12,7 @@ window.TMCloud=(()=>{
  function clearSession(){rawRemove.call(localStorage,'amc_auth_session');rawRemove.call(sessionStorage,'amc_auth_session');}
  function signOut(reason='Your session ended. Please sign in again.',broadcast=true){
   if(terminating)return;terminating=true;const session=readSession();clearSession();
-  for(const k of [...Object.keys(mapping),'amc_system_users','amc_technician_directory'])rawRemove.call(localStorage,k);
+  for(const k of [...Object.keys(mapping),'amc_system_users','amc_technician_directory','amc_overtime_invitations'])rawRemove.call(localStorage,k);
   if(session?.user?.id&&broadcast)rawSet.call(localStorage,'amc_signout_'+session.user.id,String(Date.now()));
   rawSet.call(sessionStorage,'amc_signout_reason',reason);
   if(session?.token)fetch(url+'/auth/v1/logout?scope=local',{method:'POST',headers:{apikey:key,Authorization:'Bearer '+session.token},keepalive:true}).catch(()=>{});
@@ -41,7 +41,7 @@ window.TMCloud=(()=>{
  const stableList=value=>JSON.stringify(stable([...(value||[])].sort((a,b)=>String(a.id).localeCompare(String(b.id)))));
  const dataSignature=values=>JSON.stringify(stable(Object.fromEntries(Object.entries(mapping).map(([key,[,shape]])=>[key,shape==='array'?[...(values[key]||[])].sort((a,b)=>String(a.id).localeCompare(String(b.id))):values[key]]))));
  const deferSync=()=>dirty||failed||document.hidden||document.activeElement?.matches('input,textarea,[contenteditable=true]')||document.querySelector('.modal-backdrop,.modal-overlay,.cloud-credential-overlay,[data-floating-panel]');
- function hydrate(snapshot){if(terminating)return {};const values=materialize(snapshot);versions={};snapshot.records.forEach(r=>versions[r.kind+':'+r.id]=r.version);for(const [k,v] of Object.entries(values)){rawSet.call(localStorage,k,JSON.stringify(v));baseline[k]=v;}rawSet.call(localStorage,'amc_system_users',JSON.stringify(snapshot.users.map(profile)));rawSet.call(localStorage,'amc_technician_directory',JSON.stringify(snapshot.technicians||[]));const s=readSession();if(s)persist({...s,user:profile(snapshot.profile)});return values;}
+ function hydrate(snapshot){if(terminating)return {};const values=materialize(snapshot);versions={};snapshot.records.forEach(r=>versions[r.kind+':'+r.id]=r.version);for(const [k,v] of Object.entries(values)){rawSet.call(localStorage,k,JSON.stringify(v));baseline[k]=v;}rawSet.call(localStorage,'amc_system_users',JSON.stringify(snapshot.users.map(profile)));rawSet.call(localStorage,'amc_technician_directory',JSON.stringify(snapshot.technicians||[]));rawSet.call(localStorage,'amc_overtime_invitations',JSON.stringify(snapshot.overtimeInvitations||[]));const s=readSession();if(s)persist({...s,user:profile(snapshot.profile)});return values;}
  function install(){if(installed)return;installed=true;Storage.prototype.setItem=function(k,v){if(this!==localStorage||!mapping[k])return rawSet.call(this,k,v);const next=JSON.parse(v),[kind,shape]=mapping[k],previous=new Map(entries(baseline[k],shape)),incoming=new Map(entries(next,shape));const changes=[];for(const [id,payload] of incoming)if(JSON.stringify(payload)!==JSON.stringify(previous.get(id)))changes.push({kind,id,payload});for(const id of previous.keys())if(!incoming.has(id))changes.push({kind,id,deleted:true});rawSet.call(this,k,v);baseline[k]=next;if(!changes.length)return;revision++;dirty++;banner('Saving changes to Supabase…');pending=pending.then(async()=>{if(failed)throw Error('A previous save failed. Keep this tab open and resolve it before continuing.');for(const c of changes){const result=await api('save_record',{...c,version:versions[kind+':'+c.id]||0});if(c.kind==='technician'&&c.deleted){const removed=new Set(result.record?.deleted_user_ids||[]);const users=JSON.parse(localStorage.getItem('amc_system_users')||'[]');rawSet.call(localStorage,'amc_system_users',JSON.stringify(users.filter(user=>!removed.has(user.id))));const directory=JSON.parse(localStorage.getItem('amc_technician_directory')||'[]');rawSet.call(localStorage,'amc_technician_directory',JSON.stringify(directory.filter(tech=>String(tech.id)!==String(c.id))));}if(result.credentials?.length)showCredentials(result.credentials);if(result.accountWarning)banner(result.accountWarning,true);if(c.deleted)delete versions[kind+':'+c.id];else versions[kind+':'+c.id]=result.record.version;}}).then(()=>{dirty--;banner(dirty?'Saving changes to Supabase…':'Saved to Supabase');}).catch(error=>{failed=true;dirty--;if(terminating)return;banner('NOT SAVED: '+error.message+' Your local edits remain in this tab.',true);});};
   window.addEventListener('beforeunload',e=>{if(!terminating&&(dirty||failed)){e.preventDefault();e.returnValue=''}});
   setInterval(async()=>{
@@ -51,14 +51,14 @@ window.TMCloud=(()=>{
     const snapshot=await api('snapshot');
     if(terminating||deferSync()||startedRevision!==revision)return;
     const next=materialize(snapshot),users=snapshot.users.map(profile);snapshot.records.forEach(record=>versions[record.kind+':'+record.id]=record.version);
-    if(dataSignature(next)!==dataSignature(baseline)||stableList(snapshot.technicians)!==stableList(JSON.parse(localStorage.getItem('amc_technician_directory')||'[]'))||stableList(users)!==stableList(JSON.parse(localStorage.getItem('amc_system_users')||'[]'))){
+    if(stableList(snapshot.overtimeInvitations||[])!==stableList(JSON.parse(localStorage.getItem('amc_overtime_invitations')||'[]'))||dataSignature(next)!==dataSignature(baseline)||stableList(snapshot.technicians)!==stableList(JSON.parse(localStorage.getItem('amc_technician_directory')||'[]'))||stableList(users)!==stableList(JSON.parse(localStorage.getItem('amc_system_users')||'[]'))){
      const values=hydrate(snapshot);window.dispatchEvent(new CustomEvent('tm-cloud-update',{detail:{values,user:profile(snapshot.profile)}}));
     }
    }catch(error){if(error.code==='AUTH_REQUIRED'){reconnect(error);return;}banner('Cloud connection: '+error.message,true);}
    finally{syncing=false;}
   },15000);
  }
- async function start(){const s=readSession();if(!s?.cloud){for(const k of [...Object.keys(mapping),'amc_system_users','amc_technician_directory'])rawRemove.call(localStorage,k);const reason=sessionStorage.getItem('amc_signout_reason');if(reason){rawRemove.call(sessionStorage,'amc_signout_reason');banner(reason);}return;}installSessionGuard();if(terminating)return;try{hydrate(await api('snapshot'));install();banner('Connected to Supabase');}catch(error){if(error.code==='AUTH_REQUIRED'){reconnect(error);return;}banner(error.message,true);}}
+ async function start(){const s=readSession();if(!s?.cloud){for(const k of [...Object.keys(mapping),'amc_system_users','amc_technician_directory','amc_overtime_invitations'])rawRemove.call(localStorage,k);const reason=sessionStorage.getItem('amc_signout_reason');if(reason){rawRemove.call(sessionStorage,'amc_signout_reason');banner(reason);}return;}installSessionGuard();if(terminating)return;try{hydrate(await api('snapshot'));install();banner('Connected to Supabase');}catch(error){if(error.code==='AUTH_REQUIRED'){reconnect(error);return;}banner(error.message,true);}}
  async function login(username,password,remember){
   const d=await api('login',{username,password});
   const session={cloud:true,user:profile(d.profile),token:d.session.access_token,refresh_token:d.session.refresh_token,expires_at:d.session.expires_at,createdAt:new Date().toISOString()};
@@ -73,5 +73,6 @@ window.TMCloud=(()=>{
   if(response.status===401){signOut('Your session expired. Please sign in again.');throw authError('Session expired');}
   if(!response.ok)throw Error(result.msg||result.message||result.error_description||'Could not update your password. Please try again.');
  }
- return {start,login,api,banner,profile,showCredentials,changePassword,signOut,recordVersion:(kind,id)=>versions[kind+':'+id]||0};
+ async function refresh(){await pending;if(dirty||failed)throw Error('Finish saving your current changes before refreshing.');const startedRevision=revision;const snapshot=await api('snapshot');if(dirty||startedRevision!==revision)throw Error('Your changes are saving. The new records will appear after synchronization.');const values=hydrate(snapshot);window.dispatchEvent(new CustomEvent('tm-cloud-update',{detail:{values,user:profile(snapshot.profile)}}));return snapshot;}
+ return {start,login,api,refresh,banner,profile,showCredentials,changePassword,signOut,recordVersion:(kind,id)=>versions[kind+':'+id]||0};
 })();

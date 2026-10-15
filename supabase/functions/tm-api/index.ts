@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
 import { technicianSnapshot, technicianDirectory, sameTechnician } from './visibility.ts';
 import { deleteLinkedAuthUsers } from './account-cleanup.ts';
 import { auditTechnicianLogins } from './login-audit.ts';
+import { overtimeInvitations, invitedOvertimeCopy, validateTechnicianImport } from './overtime-transfer.ts';
 
 // Deploy with gateway JWT verification disabled: login is public, every other
 // action verifies the access token and active profile explicitly below.
@@ -90,7 +91,30 @@ Deno.serve(async request=>{
    for(let offset=0;;offset+=500){const {data,error}=await query.range(offset,offset+499);fail(error);records.push(...(data||[]));if((data||[]).length<500)break;}
    const filtered=manager?records:technicianSnapshot(records,actor.technician_id,actor.id);
    const {data:profiles,error}=await admin.from('tm_profiles').select('id,username,name,technician_id,role,status,created_at');fail(error);
-   return reply({profile:actor,records:filtered,technicians:technicianDirectory(records,profiles||[]),users:manager?profiles:(profiles||[]).filter(p=>p.id===actor.id||p.role==='Coordinator'&&p.status==='Active')});
+   return reply({profile:actor,records:filtered,overtimeInvitations:overtimeInvitations(records,actor),technicians:technicianDirectory(records,profiles||[]),users:manager?profiles:(profiles||[]).filter(p=>p.id===actor.id||p.role==='Coordinator'&&p.status==='Active')});
+  }
+  if(input.action==='accept_overtime'){
+   if(actor.role!=='Technician')return reply({error:'Technician access required'},403);
+   const {data:source,error:sourceError}=await admin.from('tm_records').select('*').eq('kind','overtime').eq('id',String(input.id)).maybeSingle();fail(sourceError);
+   if(!source)return reply({error:'This overtime was removed.'},404);
+   let payload;try{payload=invitedOvertimeCopy(source,actor,[]);}catch(e){return reply({error:(e as Error).message},403);}
+   const {data:techs,error:techError}=await admin.from('tm_records').select('id,payload').eq('kind','technician');fail(techError);
+   payload=invitedOvertimeCopy(source,actor,(techs||[]).map(t=>({id:t.id,name:t.payload.name})));
+   const {data:existing,error:existingError}=await admin.from('tm_records').select('*').eq('kind','overtime').eq('id',payload.id).maybeSingle();fail(existingError);
+   if(existing)return reply({record:existing,alreadyAdded:true});
+   const {data,error}=await admin.rpc('tm_save_record',{p_actor:actor.id,p_kind:'overtime',p_id:payload.id,p_payload:payload,p_version:0,p_delete:false});
+   if(error){if(error.message.includes('CONFLICT'))return reply({alreadyAdded:true});throw Error('Could not add the overtime. Please try again.');}
+   return reply({record:data});
+  }
+  if(input.action==='import_technician'){
+   if(!['Administrator','Admin','Coordinator'].includes(actor.role))return reply({error:'Access denied'},403);
+   let tech;try{tech=validateTechnicianImport(input.technician);}catch(e){return reply({error:(e as Error).message},400);}
+   const canonical=tech.id.replace(/^0+(?=\d)/,'');const variants=Array.from({length:6-canonical.length},(_,i)=>canonical.padStart(canonical.length+i,'0'));
+   const {data:existing,error:lookup}=await admin.from('tm_records').select('id').eq('kind','technician').in('id',variants).limit(1);fail(lookup);
+   if(existing?.length)return reply({skipped:true,id:existing[0].id});
+   const {data,error}=await admin.rpc('tm_save_record',{p_actor:actor.id,p_kind:'technician',p_id:tech.id,p_payload:tech,p_version:0,p_delete:false});
+   if(error){if(error.message.includes('CONFLICT'))return reply({skipped:true,id:tech.id});throw Error('Could not import technician '+tech.id);}
+   try{const credential=await provisionTechnician(tech);return reply({record:data,credentials:credential?[credential]:[]});}catch{return reply({record:data,accountWarning:'Technician imported; use Create missing technician logins to retry login creation.'});}
   }
   if(input.action==='save_record'){
    const {data,error}=await admin.rpc('tm_save_record',{p_actor:actor.id,p_kind:input.kind,p_id:input.id,p_payload:input.payload||{},p_version:Number(input.version||0),p_delete:!!input.deleted});
