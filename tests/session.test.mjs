@@ -12,10 +12,10 @@ test('loading default team settings never writes manager-only settings',()=>{
  const defaults={teamName:'Secure Services Limited',projectType:'Technician Allocation'};
  assert.deepEqual(load({getItem:()=>null},{TEAM_SETTINGS:'settings'},defaults,()=>{throw Error('Unexpected startup write');}),defaults);
 });
-function app({remember=false,lastActivity,handler}={}){
+function app({remember=false,lastActivity,handler,busyUI=true}={}){
  let now=1000000,reloads=0;
  class Storage{constructor(){this.items=new Map();}getItem(k){return this.items.get(k)??null;}setItem(k,v){this.items.set(k,String(v));}removeItem(k){this.items.delete(k);}}
- const localStorage=new Storage(),sessionStorage=new Storage(),listeners={},timers=[],calls=[];
+ const localStorage=new Storage(),sessionStorage=new Storage(),listeners={},timers=[],calls=[],events=[];
  const profile={id:'u',username:'tech',role:'Technician',status:'Active',technician_id:'170'};
  (remember?localStorage:sessionStorage).setItem('amc_auth_session',JSON.stringify({cloud:true,user:profile,token:'test-token',refresh_token:'test-refresh',expires_at:999999}));
  if(lastActivity!==undefined)localStorage.setItem('amc_activity_u',String(lastActivity));
@@ -24,11 +24,13 @@ function app({remember=false,lastActivity,handler}={}){
  const element=()=>({style:{},setAttribute(){},append(){},focus(){}});
  const status=element();
  const context=vm.createContext({Storage,localStorage,sessionStorage,fetch,AbortSignal,Date:class extends Date{static now(){return now;}},Promise,Error,JSON,Map,Object,String,Number,Math,
-  document:{hidden:false,activeElement:{matches:()=>true},querySelector:()=>({}),getElementById:()=>status,createElement:element,body:{append(){}},addEventListener:(type,fn)=>(listeners[type]??=[]).push(fn)},
+  document:{hidden:false,activeElement:{matches:()=>busyUI},querySelector:()=>busyUI?{}:null,getElementById:()=>status,createElement:element,body:{append(){}},addEventListener:(type,fn)=>(listeners[type]??=[]).push(fn)},
   location:{reload:()=>reloads++},setInterval:(fn,ms)=>timers.push({fn,ms}),setTimeout:()=>1,clearTimeout(){},navigator:{}});
  context.window=context;context.addEventListener=(type,fn)=>(listeners[type]??=[]).push(fn);
+ context.CustomEvent=class{constructor(type,options){this.type=type;this.detail=options.detail;}};
+ context.dispatchEvent=event=>{events.push(event);for(const fn of listeners[event.type]||[])fn(event);};
  vm.runInContext(source,context);
- return {cloud:context.TMCloud,localStorage,sessionStorage,calls,response,now:()=>now,reloads:()=>reloads,
+ return {cloud:context.TMCloud,localStorage,sessionStorage,calls,events,response,now:()=>now,reloads:()=>reloads,
   advance:ms=>now+=ms,tick:async ms=>{for(const t of timers.filter(t=>t.ms===ms))await t.fn();},
   event:async(type,event={})=>{for(const fn of listeners[type]||[])await fn(event);},context};
 }
@@ -90,4 +92,34 @@ test('successful technician deletion removes linked users and picker entries fro
  await new Promise(resolve=>setImmediate(resolve));
  assert.deepEqual(JSON.parse(a.localStorage.getItem('amc_system_users')).map(user=>user.id),['u']);
  assert.deepEqual(JSON.parse(a.localStorage.getItem('amc_technician_directory')),[]);
+});
+test('equivalent snapshots with reordered records and object keys never refresh the page',async()=>{
+ let round=0;const profile={id:'u',username:'tech',role:'Technician',status:'Active'};
+ const a=app({busyUI:false,handler:(_,body)=>body.action==='snapshot'?{status:200,ok:true,json:async()=>({profile,users:[profile],technicians:[],records:(round++%2?[{kind:'technician',id:'2',payload:{name:'Two',id:'2'}},{kind:'technician',id:'1',payload:{name:'One',id:'1'}}]:[{kind:'technician',id:'1',payload:{id:'1',name:'One'}},{kind:'technician',id:'2',payload:{id:'2',name:'Two'}}])})}:null});
+ await a.cloud.start();await a.tick(15000);await a.tick(15000);
+ assert.equal(a.reloads(),0);assert.equal(a.events.length,0);
+});
+test('changed snapshots update the cache and notify React without reloading',async()=>{
+ let name='Before';const profile={id:'u',username:'tech',role:'Technician',status:'Active'};
+ const a=app({busyUI:false,handler:(_,body)=>body.action==='snapshot'?{status:200,ok:true,json:async()=>({profile,users:[profile],technicians:[{id:'170',name}],records:[{kind:'technician',id:'170',version:2,payload:{id:'170',name}}]})}:null});
+ await a.cloud.start();name='After';await a.tick(15000);
+ assert.equal(a.reloads(),0);assert.equal(a.events[0].type,'tm-cloud-update');
+ assert.equal(JSON.parse(a.localStorage.getItem('amc_technicians'))[0].name,'After');
+ assert.equal(a.cloud.recordVersion('technician','170'),2);
+});
+test('login needs only one snapshot and no page reload',async()=>{
+ const profile={id:'u',username:'tech',role:'Technician',status:'Active'};
+ const a=app({handler:(_,body)=>body.action==='login'?{status:200,ok:true,json:async()=>({profile,session:{access_token:'new-token',refresh_token:'new-refresh',expires_at:999999}})}:null});
+ const session=await a.cloud.login('tech','example-only',false);
+ assert.equal(session.token,'new-token');assert.equal(a.calls.filter(c=>c.body.action==='snapshot').length,1);assert.equal(a.reloads(),0);assert.equal(a.events[0].type,'tm-cloud-update');
+});
+test('edits made while a snapshot is in flight are not overwritten',async()=>{
+ let calls=0,release;const profile={id:'u',username:'tech',role:'Technician',status:'Active'};
+ const snapshot={profile,users:[profile],technicians:[],records:[]};
+ const response={status:200,ok:true,json:async()=>snapshot};
+ const a=app({busyUI:false,handler:(_,body)=>body.action==='snapshot'?(++calls===1?response:new Promise(resolve=>release=()=>resolve(response))):body.action==='save_record'?{status:200,ok:true,json:async()=>({record:{version:1}})}:null});
+ await a.cloud.start();const pending=a.tick(15000);await new Promise(resolve=>setImmediate(resolve));
+ a.localStorage.setItem('amc_day_allocations',JSON.stringify({'2026-10-16':{allocations:[{technicianId:'170',projectLocation:'New edit'}]}}));
+ await new Promise(resolve=>setImmediate(resolve));release();await pending;
+ assert.ok(a.localStorage.getItem('amc_day_allocations').includes('New edit'));assert.equal(a.events.length,0);assert.equal(a.reloads(),0);
 });
