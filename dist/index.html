@@ -2953,6 +2953,10 @@ html[data-theme] #printable-allocation-sheet.capturing-image { width:1120px !imp
 .capturing-image .allocation-table .col-tech { width:260px !important; }
 .capturing-image .allocation-table .col-transport { width:160px !important; }
 .capturing-image .sheet-title-banner { display:flex !important; flex-direction:row !important; align-items:center !important; gap:24px !important; }
+</style><style>
+.list-pagination{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:12px 14px;background:var(--surface,#f7fbf9);border:1px solid var(--border-color,#c9ddda);border-radius:12px;margin:12px 0;color:var(--text-main);font-size:13px}
+.list-page-size,.list-page-buttons{display:flex;align-items:center;gap:10px}.list-page-size select{width:76px;min-height:38px;border:1px solid #b4cfca;border-radius:8px;background:var(--surface,#fff);color:inherit;padding:6px}.list-page-buttons .btn{min-height:38px;width:auto}.list-page-buttons button:disabled{opacity:.45;cursor:default}
+@media(max-width:600px){.list-pagination{gap:12px;padding:12px}.list-page-buttons{width:100%;justify-content:space-between}.list-page-buttons .btn{padding:8px 12px}}
 </style></head>
   <body>
     <div id="root"></div>
@@ -3189,6 +3193,31 @@ var TechnicianMultiSelect=({technicians,value,onChange})=>{
  (0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:()=>setOpen(false),children:'Done'})]})]});
 };
 
+// Shared user-specific list pagination.
+function paginationWindow(items,size,page){
+ const pageSize=[10,20,50,100].includes(Number(size))?Number(size):20;
+ const pages=Math.max(1,Math.ceil(items.length/pageSize));
+ const current=Math.max(1,Math.min(Number(page)||1,pages));
+ const offset=(current-1)*pageSize;
+ return {items:items.slice(offset,offset+pageSize),page:current,pages,size:pageSize,total:items.length,offset};
+}
+function useListPagination(items,list,filterKey='',user){
+ let account=user;try{account=account||JSON.parse(sessionStorage.getItem('amc_auth_session')||'null')?.user;}catch(e){}
+ const storageKey='amc_page_size_'+(account?.id||account?.username||'local')+'_'+list;
+ const readSize=()=>{try{return paginationWindow([],localStorage.getItem(storageKey),1).size;}catch(e){return 20;}};
+ const [size,setSize]=(0,_.useState)(readSize);
+ const [position,setPosition]=(0,_.useState)({key:filterKey,page:1});
+ (0,_.useEffect)(()=>{setSize(readSize());setPosition({key:filterKey,page:1});},[storageKey]);
+ const result=paginationWindow(items,size,position.key===filterKey?position.page:1);
+ (0,_.useEffect)(()=>{setPosition(old=>old.key===filterKey&&old.page===result.page?old:{key:filterKey,page:result.page});},[filterKey,result.page]);
+ return {...result,list,setPage:page=>setPosition({key:filterKey,page}),setSize:value=>{const next=paginationWindow([],value,1).size;setSize(next);setPosition({key:filterKey,page:1});try{localStorage.setItem(storageKey,String(next));}catch(e){}}};
+}
+var ListPagination=({pagination:p})=>(0,N.jsxs)('nav',{className:'list-pagination','aria-label':p.list+' pagination',children:[
+ (0,N.jsxs)('label',{className:'list-page-size',children:['Rows per page',(0,N.jsx)('select',{'aria-label':p.list+' rows per page',value:p.size,onChange:ev=>p.setSize(ev.target.value),children:[10,20,50,100].map(size=>(0,N.jsx)('option',{value:size,children:size},size))})]}),
+ (0,N.jsx)('span',{'aria-live':'polite',children:p.total?(p.offset+1)+'–'+Math.min(p.offset+p.size,p.total)+' of '+p.total:'0 results'}),
+ (0,N.jsxs)('div',{className:'list-page-buttons',children:[(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:p.page===1,onClick:()=>p.setPage(p.page-1),children:'Previous'}),(0,N.jsx)('span',{children:'Page '+p.page+' of '+p.pages}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:p.page===p.pages,onClick:()=>p.setPage(p.page+1),children:'Next'})]})
+]});
+
 var OvertimeView=({currentUser,technicians=[],onShowToast})=>{
   let directory=[];try{directory=JSON.parse(localStorage.getItem('amc_technician_directory')||'[]');}catch(e){}
   const teamTechnicians=window.TMCloud?directory:[...new Map(technicians.filter(t=>!['Administrator','Admin','Coordinator'].includes(t.role)).map(t=>[String(t.id),{id:String(t.id),name:t.name}])).values()];
@@ -3204,6 +3233,7 @@ var OvertimeView=({currentUser,technicians=[],onShowToast})=>{
     const id=record.ownerTechnicianId||accounts.find(u=>u.id===record.ownerId)?.technicianNumber||'';
     return String(id).toLowerCase().includes(filters.id.toLowerCase())&&String(record.ownerName||'').toLowerCase().includes(filters.name.toLowerCase())&&String(record.location||'').toLowerCase().includes(filters.location.toLowerCase())&&(!filters.date||record.date===filters.date)&&String(record.approvedBy||'').toLowerCase().includes(filters.approvedBy.toLowerCase());
   });
+  const pagination=useListPagination(visible,'Overtime',JSON.stringify(filters),currentUser);
   const update=(key,value)=>{setForm(old=>({...old,[key]:value}));setSelected(null);};
   const teamNames=form.teamIds.map(id=>{const t=teamTechnicians.find(t=>String(t.id)===id);return t?t.name||getTechnicianUsername(t):id;});
   const draft={...form,ownerId:currentUser.id,ownerTechnicianId:normalizeAccount(currentUser).technicianNumber,ownerName:currentUser.name||currentUser.username,teamNames};
@@ -3276,9 +3306,10 @@ var OvertimeView=({currentUser,technicians=[],onShowToast})=>{
     !isTechnician&&selected&&(0,N.jsxs)('section',{className:'callouts-header-card',children:[(0,N.jsxs)('div',{className:'dashboard-heading',children:[(0,N.jsx)('h3',{children:'Overtime sheet'}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:()=>setSelected(null),children:'Close sheet'})]}),(0,N.jsx)('div',{ref:sheetRef,className:'ot-sheet',dangerouslySetInnerHTML:{__html:overtimeSheetHTML(selected)}}),(0,N.jsxs)('div',{className:'ot-actions',children:[(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:print,children:'Save as PDF'}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:copy,children:'Copy as image'})]})]}),
     (0,N.jsxs)('section',{className:'callouts-header-card ot-saved',children:[
       (0,N.jsxs)('div',{className:'ot-export-heading',children:[(0,N.jsx)('h3',{children:isTechnician?'My overtime sheets':'All users’ overtime'}),(0,N.jsxs)('div',{className:'ot-actions',children:[(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:!visible.length,onClick:exportAll,children:'Export all as PDF'}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:!visible.length,onClick:exportCSV,children:'Export all as CSV'})]})]}),
+      (0,N.jsx)(ListPagination,{pagination}),
       visible.length?(0,N.jsx)('div',{className:'ot-table-scroll',tabIndex:0,'aria-label':'Overtime records table',children:(0,N.jsxs)('table',{className:'ot-records-table',children:[
         (0,N.jsx)('thead',{children:(0,N.jsx)('tr',{children:['Technician','Date','Day','Started','Ended','Total hours','Callout / Project','Client','Location','Team members','Approved by','Sheet'].map(label=>(0,N.jsx)('th',{scope:'col',children:label},label))})}),
-        (0,N.jsx)('tbody',{children:visible.map(record=>(0,N.jsxs)('tr',{children:[
+        (0,N.jsx)('tbody',{children:pagination.items.map(record=>(0,N.jsxs)('tr',{children:[
           ...[record.ownerName,record.date,overtimeDay(record.date),record.start,record.end+(record.end<record.start?' (+1 day)':''),(overtimeMinutes(record.start,record.end)/60).toFixed(2),record.workType+': '+record.work,record.client,record.location,(record.teamNames||[]).join(', ')||'—',record.approvedBy||'—'].map((value,index)=>(0,N.jsx)('td',{'data-label':['Technician','Date','Day','Started','Ended','Total hours','Callout / Project','Client','Location','Team members','Approved by'][index],children:value},index)),
           (0,N.jsx)('td',{'data-label':'Sheet',children:(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:()=>{setSelected(record);if(record.ownerId===currentUser.id)setForm({...blank(),...record});requestAnimationFrame(()=>sheetRef.current?.scrollIntoView({behavior:'smooth',block:'start'}));},children:'View sheet'})})
         ]},record.id))})
@@ -13270,9 +13301,11 @@ var CalloutsManagementView = ({
     return found ? (found.name + ' - ' + found.id) : (fallbackName || techId);
   };
 
+  const pagination=useListPagination(sorted,'Callouts',JSON.stringify([searchQuery,statusFilter,technicianFilter,dateFilter,priorityFilter,sortField,sortAsc]));
   return (0, N.jsxs)("div", {
     className: "callouts-container",
     children: [
+      (0,N.jsx)(ListPagination,{pagination}),
       (0, N.jsxs)("div", {
         className: "callouts-header-card",
         children: [
@@ -13560,7 +13593,7 @@ var CalloutsManagementView = ({
                       })
                     })
                   ) : (
-                    sorted.map(c => {
+                    pagination.items.map(c => {
                       let isDeleteConfirm = deleteConfirmId === c.id;
                       let isRescheduled = c.status === 'Re-Scheduled';
                       let originalTechName = getTechDisplayName(c.assignedTechnicianId, c.assignedTechnicianName);
@@ -13734,7 +13767,7 @@ var CalloutsManagementView = ({
               className: "callouts-table-footer",
               style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", backgroundColor: "var(--surface-alt)", borderTop: "1px solid #E5E7EB", fontSize: "12px", color: "var(--text-muted)" },
               children: [
-                (0, N.jsxs)("span", { children: ["Showing ", sorted.length, " of ", totalCount, " callouts"] }),
+                (0, N.jsxs)("span", { children: ["Matching ", sorted.length, " of ", totalCount, " callouts"] }),
                 (0, N.jsxs)("span", { children: ["Active filters: Status (", statusFilter, "), Priority (", priorityFilter, "), Tech (", technicianFilter === 'All' ? 'All' : 'Selected', ")"] })
               ]
             })
@@ -14423,9 +14456,11 @@ var TechniciansManagementView = ({
       (t.role || '').toLowerCase().includes(q);
   });
 
+  const pagination=useListPagination(filtered,'Technicians',JSON.stringify([searchQuery,filterRole]));
   return (0, N.jsxs)("div", {
     className: "callouts-container",
     children: [
+      (0,N.jsx)(ListPagination,{pagination}),
       // Top Header Card
       (0, N.jsxs)("div", {
         className: "callouts-header-card",
@@ -14746,7 +14781,7 @@ var TechniciansManagementView = ({
                       children: (0, N.jsx)("td", { colSpan: 9, style: { textAlign: "center", padding: "24px", color: "var(--text-muted)" }, children: "No technicians found matching criteria." })
                     })
                   ) : (
-                    filtered.map((tech, idx) => {
+                    pagination.items.map((tech, idx) => {
                       let isDeleting = deleteConfirmId === tech.id;
                       let isOnLeave = onLeaveTodayTechIds.includes(tech.id);
                       let isCotm = activeCotm && activeCotm.techId === tech.id;
@@ -14783,7 +14818,7 @@ var TechniciansManagementView = ({
                       return (0, N.jsxs)("tr", {
                         style: { backgroundColor: isCotm ? "#FEF9C3" : (isOnLeave ? "#FFFBEB" : "var(--surface-alt)") },
                         children: [
-                          (0, N.jsx)("td", { style: { textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }, children: idx + 1 }),
+                          (0, N.jsx)("td", { style: { textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }, children: pagination.offset + idx + 1 }),
                           (0, N.jsx)("td", {
                             children: (0, N.jsxs)("div", {
                               style: { display: "flex", alignItems: "center", gap: 8 },
@@ -15117,6 +15152,7 @@ function loadLeaveRequests(){try{const items=JSON.parse(localStorage.getItem('am
 var LeaveRequestsView=({currentUser,technicians,leaves,onSaveLeaves,onShowToast})=>{
  const manager=['Administrator','Admin','Coordinator'].includes(normalizeAccount(currentUser).role);
  const [requests,setRequests]=(0,_.useState)(loadLeaveRequests),[form,setForm]=(0,_.useState)({type:'Medical Leave',startDate:localDateISO(),endDate:localDateISO(),reason:''}),[remarks,setRemarks]=(0,_.useState)({});
+ const pagination=useListPagination(requests.filter(r=>manager||r.ownerId===currentUser.id),'Leave requests','',currentUser);
  const own=technicians.find(t=>accountMatchesTechnician(currentUser,t.id));
  const persist=next=>{try{localStorage.setItem('amc_leave_requests',JSON.stringify(next));setRequests(next);return true;}catch(e){onShowToast('Could not save the leave request.','error');return false;}};
  (0,_.useEffect)(()=>{const refresh=ev=>{if(ev.key==='amc_leave_requests')setRequests(loadLeaveRequests());};const cloudRefresh=()=>refresh({key:'amc_leave_requests'});window.addEventListener('storage',refresh);window.addEventListener('tm-cloud-update',cloudRefresh);return()=>{window.removeEventListener('storage',refresh);window.removeEventListener('tm-cloud-update',cloudRefresh);};},[]);
@@ -15136,7 +15172,7 @@ var LeaveRequestsView=({currentUser,technicians,leaves,onSaveLeaves,onShowToast}
  };
  return (0,N.jsxs)('section',{className:'callouts-header-card leave-requests-panel',children:[(0,N.jsx)('h2',{children:manager?'Leave requests':'Request leave'}),!manager&&(0,N.jsxs)('form',{onSubmit:submit,children:[(0,N.jsxs)('div',{className:'leave-request-fields',children:[(0,N.jsxs)('label',{className:'ot-field',children:['Leave type',(0,N.jsxs)(ThemedSelect,{className:'form-control',value:form.type,onChange:ev=>setForm(old=>({...old,type:ev.target.value})),children:[(0,N.jsx)('option',{children:'Medical Leave'}),(0,N.jsx)('option',{children:'Emergency Leave'})]})]}),...['startDate','endDate'].map(key=>(0,N.jsxs)('label',{className:'ot-field',children:[key==='startDate'?'Start date':'End date',(0,N.jsx)(ThemedInput,{type:'date',className:'form-control',required:true,value:form[key],min:key==='endDate'?form.startDate:undefined,onChange:ev=>setForm(old=>({...old,[key]:ev.target.value}))})]},key)),(0,N.jsxs)('label',{className:'ot-field',children:['Reason',(0,N.jsx)('textarea',{className:'form-control',required:true,value:form.reason,onChange:ev=>setForm(old=>({...old,reason:ev.target.value}))})]})]}),(0,N.jsx)('button',{type:'submit',className:'btn btn-primary',style:{marginTop:12},children:'Submit request'})]}),
  (0,N.jsx)('p',{className:'ot-note',children:'Medical leave requires a medical certificate received by the coordinator. Requests are stored on this browser/device.'}),
- (0,N.jsx)('div',{className:'leave-request-list',children:requests.filter(r=>manager||r.ownerId===currentUser.id).map(request=>(0,N.jsxs)('article',{className:'leave-request-card',children:[(0,N.jsxs)('div',{className:'dashboard-heading',children:[(0,N.jsx)('strong',{children:request.technicianName+' · ID '+request.technicianId}),(0,N.jsx)('span',{className:'leave-request-status',children:request.status})]}),(0,N.jsx)('p',{children:request.type+' · '+request.startDate+' to '+request.endDate}),(0,N.jsx)('p',{children:request.reason}),request.type==='Medical Leave'&&(manager?(0,N.jsxs)('label',{className:'certificate-received',children:[(0,N.jsx)('input',{type:'checkbox',checked:request.certificateReceived,disabled:request.status!=='Pending',onChange:ev=>patch(request,{certificateReceived:ev.target.checked})}),'Medical certificate received']}):(0,N.jsx)('p',{children:request.certificateReceived?'Medical certificate received':'Awaiting medical certificate'})),manager&&(0,N.jsxs)('label',{className:'ot-field',children:['Coordinator remark',(0,N.jsx)('textarea',{className:'form-control',value:remarks[request.id]??request.remark,onChange:ev=>setRemarks(old=>({...old,[request.id]:ev.target.value}))})]}),!manager&&request.remark&&(0,N.jsx)('p',{children:'Coordinator remark: '+request.remark}),manager&&(0,N.jsxs)('div',{className:'leave-request-actions',children:[(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:()=>{if(patch(request,{remark:remarks[request.id]??request.remark}))onShowToast('Remark saved.','success');},children:'Save remark'}),request.status==='Pending'&&(0,N.jsx)('button',{type:'button',className:'btn btn-primary',disabled:request.type==='Medical Leave'&&!request.certificateReceived,onClick:()=>confirm(request),children:'Confirm leave'}),request.status==='Confirmed'&&(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:async()=>{if(await AppDialog.confirm('Close this confirmed leave case?',{title:'Close leave case',confirmLabel:'Close case'})){patch(request,{status:'Closed',remark:remarks[request.id]??request.remark,closedBy:currentUser.name,closedAt:new Date().toISOString()});}},children:'Close case'})]})]},request.id))})]});
+ (0,N.jsx)('div',{className:'leave-request-list',children:pagination.items.map(request=>(0,N.jsxs)('article',{className:'leave-request-card',children:[(0,N.jsxs)('div',{className:'dashboard-heading',children:[(0,N.jsx)('strong',{children:request.technicianName+' · ID '+request.technicianId}),(0,N.jsx)('span',{className:'leave-request-status',children:request.status})]}),(0,N.jsx)('p',{children:request.type+' · '+request.startDate+' to '+request.endDate}),(0,N.jsx)('p',{children:request.reason}),request.type==='Medical Leave'&&(manager?(0,N.jsxs)('label',{className:'certificate-received',children:[(0,N.jsx)('input',{type:'checkbox',checked:request.certificateReceived,disabled:request.status!=='Pending',onChange:ev=>patch(request,{certificateReceived:ev.target.checked})}),'Medical certificate received']}):(0,N.jsx)('p',{children:request.certificateReceived?'Medical certificate received':'Awaiting medical certificate'})),manager&&(0,N.jsxs)('label',{className:'ot-field',children:['Coordinator remark',(0,N.jsx)('textarea',{className:'form-control',value:remarks[request.id]??request.remark,onChange:ev=>setRemarks(old=>({...old,[request.id]:ev.target.value}))})]}),!manager&&request.remark&&(0,N.jsx)('p',{children:'Coordinator remark: '+request.remark}),manager&&(0,N.jsxs)('div',{className:'leave-request-actions',children:[(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:()=>{if(patch(request,{remark:remarks[request.id]??request.remark}))onShowToast('Remark saved.','success');},children:'Save remark'}),request.status==='Pending'&&(0,N.jsx)('button',{type:'button',className:'btn btn-primary',disabled:request.type==='Medical Leave'&&!request.certificateReceived,onClick:()=>confirm(request),children:'Confirm leave'}),request.status==='Confirmed'&&(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:async()=>{if(await AppDialog.confirm('Close this confirmed leave case?',{title:'Close leave case',confirmLabel:'Close case'})){patch(request,{status:'Closed',remark:remarks[request.id]??request.remark,closedBy:currentUser.name,closedAt:new Date().toISOString()});}},children:'Close case'})]})]},request.id))}),(0,N.jsx)(ListPagination,{pagination})]});
 };
 
 var LeavesManagementView = ({
@@ -15252,9 +15288,11 @@ var LeavesManagementView = ({
     return tName.includes(q) || tId.includes(q) || lType.includes(q) || lNotes.includes(q);
   });
 
+  const pagination=useListPagination(filtered,'Leaves',JSON.stringify([searchQuery,leaveFilter]));
   return (0, N.jsxs)("div", {
     className: "callouts-container",
     children: [
+      (0,N.jsx)(ListPagination,{pagination}),
       // Header Card
       (0, N.jsxs)("div", {
         className: "callouts-header-card",
@@ -15473,7 +15511,7 @@ var LeavesManagementView = ({
                       children: (0, N.jsx)("td", { colSpan: 7, style: { textAlign: "center", padding: "24px", color: "var(--text-muted)" }, children: "No leave records found." })
                     })
                   ) : (
-                    filtered.map((l, idx) => {
+                    pagination.items.map((l, idx) => {
                       let tech = sortedTechs.find(t => t.id === l.technicianId);
                       let tName = tech ? tech.name : (l.technicianName || l.technicianId);
                       let st = getLeaveStatus(l);
@@ -15521,7 +15559,7 @@ var LeavesManagementView = ({
                       return (0, N.jsxs)("tr", {
                         style: { backgroundColor: st === 'active' ? "#FFFBEB" : (st === 'expired' ? "var(--surface-alt)" : "var(--surface-alt)") },
                         children: [
-                          (0, N.jsx)("td", { style: { textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }, children: idx + 1 }),
+                          (0, N.jsx)("td", { style: { textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }, children: pagination.offset + idx + 1 }),
                           (0, N.jsxs)("td", {
                             children: [
                               (0, N.jsx)("div", { style: { fontWeight: 700, color: "var(--text-main)", fontSize: "13px" }, children: tName }),
