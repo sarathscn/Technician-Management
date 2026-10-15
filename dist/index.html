@@ -2868,6 +2868,13 @@ html[data-theme] .themed-calendar-day[data-date-status~="overtime"][data-date-st
 .ot-member-identity small,.ot-member-count { color:var(--text-muted); font-size:11px; }
 .ot-member-count { flex:0 0 auto; margin:0; padding:2px 12px; line-height:18px; }
 .ot-team-menu > .btn { margin:0; min-height:38px; flex:0 0 auto; }
+
+/* Keep interaction effects inexpensive on mobile and desktop. */
+html[data-theme] .app-header-bar,html[data-theme] .contextual-toolbar,html[data-theme] .sheet-container,html[data-theme] .callouts-header-card,html[data-theme] .callouts-table-card,html[data-theme] .callouts-toolbar,html[data-theme] .settings-section-card,html[data-theme] .team-card-fixed,html[data-theme] .dashboard-stat,html[data-theme] .admin-dashboard-card,html[data-theme] .modal-content,html[data-theme] .modal-card,html[data-theme] .mobile-navigation-dialog,html[data-theme] .toast-banner,html[data-theme] .login-card { backdrop-filter:none !important; -webkit-backdrop-filter:none !important; }
+html[data-theme] .modal-overlay,html[data-theme] .modal-backdrop,html[data-theme] .app-confirm-dialog::backdrop,html[data-theme] .mobile-navigation-dialog::backdrop { backdrop-filter:none !important; -webkit-backdrop-filter:none !important; }
+html[data-theme] .btn,html[data-theme] button,html[data-theme] .form-control,html[data-theme] .nav-tab-btn,html[data-theme] .custom-select-trigger { transition-property:background-color,color,border-color,opacity !important; transition-duration:.12s !important; }
+html[data-theme] .mobile-navigation-dialog[open] { animation:none !important; }
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
 </style>
   <style id="cloud-account-ui">
 .cloud-accounts{padding:24px!important;min-width:0}.cloud-account-heading{display:flex;gap:20px;align-items:center;justify-content:space-between;margin-bottom:24px}.cloud-account-heading h2{margin:0 0 8px}.cloud-account-heading p{margin:0;line-height:1.5;color:var(--text-muted)}.cloud-account-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 24px;padding:22px;border:1px solid var(--border-color,#cbdedb);border-radius:14px;background:var(--bg-main,#f3f9f7);margin-bottom:28px}.cloud-account-form h3{grid-column:1/-1;margin:0;font-size:16px}.cloud-field{display:flex;flex-direction:column;gap:8px;min-width:0;font-size:13px;font-weight:600}.cloud-field input,.cloud-field select,.cloud-field .themed-select-wrapper{width:100%;box-sizing:border-box;min-height:40px}.cloud-account-buttons{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;padding-top:4px}.cloud-account-buttons .btn{min-width:150px}.cloud-account-list-heading{margin-bottom:12px}.cloud-account-list-heading h3{font-size:16px;margin:0}.cloud-account-table th,.cloud-account-table td{text-align:left!important;padding:14px!important}.cloud-account-row-actions{display:flex;gap:8px;flex-wrap:wrap}.cloud-account-status{display:inline-block;padding:4px 10px;border-radius:20px;background:var(--bg-hover,#e4f1eb)}.cloud-account-self{color:var(--text-muted);font-size:12px}.cloud-account-error{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;background:#fff0f0;color:#a12121;border-radius:10px;margin-bottom:16px}.cloud-credential-overlay{position:fixed;inset:0;z-index:100001;background:#00251c77;display:grid;place-items:center;padding:20px}.cloud-credential-dialog{background:var(--bg-card,#f8fcfa);color:var(--text-main,#16382e);border:1px solid #bdd4cc;border-radius:18px;padding:24px;max-width:600px;width:100%;box-sizing:border-box;max-height:85vh;overflow:auto}.cloud-credential-dialog h2{margin-top:0}.cloud-credential-dialog pre{white-space:pre-wrap;word-break:break-all;padding:16px;background:var(--bg-main,#eaf3ef);border-radius:8px}.cloud-credential-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}@media(max-width:640px){.cloud-accounts{padding:16px!important}.cloud-account-heading{align-items:stretch;flex-direction:column}.cloud-account-form{grid-template-columns:minmax(0,1fr);padding:16px;gap:16px}.cloud-account-buttons{flex-wrap:wrap}.cloud-account-buttons .btn{flex:1}.cloud-account-table{min-width:650px}.cloud-account-row-actions .btn{white-space:nowrap}}
@@ -3138,7 +3145,7 @@ var OvertimeView=({currentUser,technicians=[],onShowToast})=>{
     const record={...draft,id:form.id||'ot-'+Date.now(),createdAt:form.createdAt||new Date().toISOString()};
     try {const all=loadOvertimeRecords();const next=[record,...all.filter(r=>r.id!==record.id)];localStorage.setItem('amc_overtime_records',JSON.stringify(next));setRecords(next);setForm({...record});setSelected(record);onShowToast('Overtime saved on this device.','success');}catch(e){onShowToast('Could not save overtime. Please export your sheet.','error');}
   };
-  (0,_.useEffect)(()=>{const refresh=ev=>{if(ev.key==='amc_overtime_records')setRecords(loadOvertimeRecords());};window.addEventListener('storage',refresh);return()=>window.removeEventListener('storage',refresh);},[]);
+  (0,_.useEffect)(()=>{const refresh=ev=>{if(ev.key==='amc_overtime_records')setRecords(loadOvertimeRecords());};const cloudRefresh=()=>refresh({key:'amc_overtime_records'});window.addEventListener('storage',refresh);window.addEventListener('tm-cloud-update',cloudRefresh);return()=>{window.removeEventListener('storage',refresh);window.removeEventListener('tm-cloud-update',cloudRefresh);};},[]);
   const ready=()=>selected||valid();
   const print=()=>{
     if(!ready())return;
@@ -3275,7 +3282,7 @@ var AdministratorDashboard = props => {
 var OwnDetails = ({currentUser,technicians,onShowToast})=>{
  const h=_.createElement,account=normalizeAccount(currentUser),tech=technicians.find(t=>accountMatchesTechnician(account,t.id));
  const [form,setForm]=_.useState({name:tech?.name||account.name||'',mobileNumber:tech?.mobileNumber||'',specialization:tech?.role||''}),[version,setVersion]=_.useState(null),[busy,setBusy]=_.useState(false),[error,setError]=_.useState('');
- _.useEffect(()=>{if(window.TMCloud)TMCloud.api('snapshot').then(s=>{const r=s.records.find(r=>r.kind==='technician'&&String(r.id)===String(tech?.id));setVersion(r?.version??0);if(r)setForm({name:r.payload.name||'',mobileNumber:r.payload.mobileNumber||'',specialization:r.payload.role||''});}).catch(e=>setError(e.message));},[]);
+ _.useEffect(()=>{if(window.TMCloud)setVersion(TMCloud.recordVersion('technician',tech?.id));},[tech?.id]);
  const save=async e=>{e.preventDefault();const name=form.name.trim(),mobile=form.mobileNumber.trim();if(!name||name.length>100||mobile&&!/^\d{8}$/.test(mobile)){setError('Enter your name and an optional mobile number containing exactly 8 digits.');return;}setBusy(true);setError('');try{
   if(window.TMCloud){await TMCloud.api('update_self',{...form,name,mobileNumber:mobile,version});}
   else{if(tech){const next=technicians.map(t=>String(t.id)===String(tech.id)?{...t,name,mobileNumber:mobile,role:form.specialization.trim()}:t);localStorage.setItem('amc_technicians',JSON.stringify(next));}const users=JSON.parse(localStorage.getItem('amc_system_users')||'[]');localStorage.setItem('amc_system_users',JSON.stringify(users.map(u=>u.id===account.id?{...u,name}:u)));for(const storage of [localStorage,sessionStorage]){const raw=storage.getItem('amc_auth_session');if(raw){const session=JSON.parse(raw);if(session.user?.id===account.id)storage.setItem('amc_auth_session',JSON.stringify({...session,user:{...session.user,name}}));}}}
@@ -11612,7 +11619,7 @@ var LoginView = ({
     if (isLoading) return;
     let cleanPass = password;
 
-    if(window.TMCloud){try{await window.TMCloud.login(cleanEmail,cleanPass,rememberMe);}catch(error){setErrorMessage(error.message);setIsLoading(false);}return;}
+    if(window.TMCloud){try{const nextSession=await window.TMCloud.login(cleanEmail,cleanPass,rememberMe);onLoginSuccess(nextSession);setIsLoading(false);}catch(error){setErrorMessage(error.message);setIsLoading(false);}return;}
     let authenticatedUser = null;
     let accessToken = null;
     let accountList=[];
@@ -15028,7 +15035,7 @@ var LeaveRequestsView=({currentUser,technicians,leaves,onSaveLeaves,onShowToast}
  const [requests,setRequests]=(0,_.useState)(loadLeaveRequests),[form,setForm]=(0,_.useState)({type:'Medical Leave',startDate:localDateISO(),endDate:localDateISO(),reason:''}),[remarks,setRemarks]=(0,_.useState)({});
  const own=technicians.find(t=>accountMatchesTechnician(currentUser,t.id));
  const persist=next=>{try{localStorage.setItem('amc_leave_requests',JSON.stringify(next));setRequests(next);return true;}catch(e){onShowToast('Could not save the leave request.','error');return false;}};
- (0,_.useEffect)(()=>{const refresh=ev=>{if(ev.key==='amc_leave_requests')setRequests(loadLeaveRequests());};window.addEventListener('storage',refresh);return()=>window.removeEventListener('storage',refresh);},[]);
+ (0,_.useEffect)(()=>{const refresh=ev=>{if(ev.key==='amc_leave_requests')setRequests(loadLeaveRequests());};const cloudRefresh=()=>refresh({key:'amc_leave_requests'});window.addEventListener('storage',refresh);window.addEventListener('tm-cloud-update',cloudRefresh);return()=>{window.removeEventListener('storage',refresh);window.removeEventListener('tm-cloud-update',cloudRefresh);};},[]);
  const patch=(request,updates)=>persist(loadLeaveRequests().map(r=>r.id===request.id?{...r,...updates,updatedAt:new Date().toISOString()}:r));
  const submit=ev=>{
   ev.preventDefault();if(!own){onShowToast('Your account needs a linked technician record.','error');return;}
@@ -16288,6 +16295,11 @@ var NominationLoginGreeting=({currentUser,roster})=>{
     let [saturdaySettings, setSaturdaySettings] = (0, _.useState)(loadSaturdaySettingsFromStorage);
     let [calloutRoster, setCalloutRoster] = (0, _.useState)(loadCalloutRosterFromStorage);
     let [bahrainHolidays, setBahrainHolidays] = (0, _.useState)(loadBahrainHolidaysFromStorage);
+
+    (0,_.useEffect)(()=>{
+      const refresh=event=>{const {values,user}=event.detail;setTechnicians(O());setLeaves(te());setDayAllocations(ie());setTeamSettings(values.amc_team_settings?.teamName?values.amc_team_settings:{teamName:'Secure Services Limited',projectType:'Technician Allocation'});setCallouts(loadCalloutsFromStorage());setSaturdaySettings(loadSaturdaySettingsFromStorage());setCalloutRoster(loadCalloutRosterFromStorage());setBahrainHolidays(loadBahrainHolidaysFromStorage());setCurrentUser(user);setSession(previous=>previous?{...previous,user}:previous);};
+      window.addEventListener('tm-cloud-update',refresh);return()=>window.removeEventListener('tm-cloud-update',refresh);
+    },[]);
 
     // Modals
     let [isTechModalOpen, setIsTechModalOpen] = (0, _.useState)(!1);
