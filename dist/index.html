@@ -2859,7 +2859,9 @@ html[data-theme] .themed-calendar-day[data-date-status~="overtime"][data-date-st
  .allocation-table .cell-actions .action-icon-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:34px!important;height:34px!important;padding:0!important;margin:0!important;border-radius:8px!important}
 }
 </style>
-  </head>
+  <style id="cloud-account-ui">
+.cloud-accounts{padding:24px!important;min-width:0}.cloud-account-heading{display:flex;gap:20px;align-items:center;justify-content:space-between;margin-bottom:24px}.cloud-account-heading h2{margin:0 0 8px}.cloud-account-heading p{margin:0;line-height:1.5;color:var(--text-muted)}.cloud-account-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 24px;padding:22px;border:1px solid var(--border-color,#cbdedb);border-radius:14px;background:var(--bg-main,#f3f9f7);margin-bottom:28px}.cloud-account-form h3{grid-column:1/-1;margin:0;font-size:16px}.cloud-field{display:flex;flex-direction:column;gap:8px;min-width:0;font-size:13px;font-weight:600}.cloud-field input,.cloud-field select,.cloud-field .themed-select-wrapper{width:100%;box-sizing:border-box;min-height:40px}.cloud-account-buttons{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;padding-top:4px}.cloud-account-buttons .btn{min-width:150px}.cloud-account-list-heading{margin-bottom:12px}.cloud-account-list-heading h3{font-size:16px;margin:0}.cloud-account-table th,.cloud-account-table td{text-align:left!important;padding:14px!important}.cloud-account-row-actions{display:flex;gap:8px;flex-wrap:wrap}.cloud-account-status{display:inline-block;padding:4px 10px;border-radius:20px;background:var(--bg-hover,#e4f1eb)}.cloud-account-self{color:var(--text-muted);font-size:12px}.cloud-account-error{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;background:#fff0f0;color:#a12121;border-radius:10px;margin-bottom:16px}.cloud-credential-overlay{position:fixed;inset:0;z-index:100001;background:#00251c77;display:grid;place-items:center;padding:20px}.cloud-credential-dialog{background:var(--bg-card,#f8fcfa);color:var(--text-main,#16382e);border:1px solid #bdd4cc;border-radius:18px;padding:24px;max-width:600px;width:100%;box-sizing:border-box;max-height:85vh;overflow:auto}.cloud-credential-dialog h2{margin-top:0}.cloud-credential-dialog pre{white-space:pre-wrap;word-break:break-all;padding:16px;background:var(--bg-main,#eaf3ef);border-radius:8px}.cloud-credential-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}@media(max-width:640px){.cloud-accounts{padding:16px!important}.cloud-account-heading{align-items:stretch;flex-direction:column}.cloud-account-form{grid-template-columns:minmax(0,1fr);padding:16px;gap:16px}.cloud-account-buttons{flex-wrap:wrap}.cloud-account-buttons .btn{flex:1}.cloud-account-table{min-width:650px}.cloud-account-row-actions .btn{white-space:nowrap}}
+</style></head>
   <body>
     <div id="root"></div>
     <script>
@@ -12469,21 +12471,25 @@ var CloudSyncSettingsModal = ({
 // =========================================================================
 var UserManagementView=props=>window.TMCloud?(0,N.jsx)(CloudAccounts,props):(0,N.jsx)(LocalUserManagementView,props);
 var CloudAccounts=({currentUser,onShowToast})=>{
- const [users,setUsers]=(0,_.useState)([]),[busy,setBusy]=(0,_.useState)(false),[edit,setEdit]=(0,_.useState)(null);
- const blank={name:'',username:'',email:'',password:'',role:currentUser.role==='Coordinator'?'Technician':'Coordinator',status:'Active'};
- const [form,setForm]=(0,_.useState)(blank);
+ const h=_.createElement;
+ const [users,setUsers]=_.useState([]),[busy,setBusy]=_.useState(false),[edit,setEdit]=_.useState(null),[error,setError]=_.useState('');
+ const blank={name:'',username:'',email:'',password:'',technician_id:'',role:currentUser.role==='Coordinator'?'Technician':'Coordinator',status:'Active'};
+ const [form,setForm]=_.useState(blank);
  const allowed=u=>currentUser.role==='Administrator'||currentUser.role==='Admin'&&['Coordinator','Technician'].includes(u.role)||currentUser.role==='Coordinator'&&u.role==='Technician';
- const load=async()=>{try{setUsers((await TMCloud.api('users')).users);}catch(e){onShowToast(e.message,'error')}};
- (0,_.useEffect)(()=>{load();},[]);
- const action=async(type,user)=>{if(!allowed(user))return;if(!await AppDialog.confirm((type==='delete_user'?'Suspend access for ':'Reset password for ')+user.username+'?'))return;
-  if(type==='reset_password'){setEdit(user);setForm({...blank,...user,password:''});return;}
-  try{setBusy(true);await TMCloud.api(type,{id:user.id});await load();onShowToast('Account access suspended; history retained.','success');}catch(e){onShowToast(e.message,'error')}finally{setBusy(false)}
- };
- const save=async e=>{e.preventDefault();try{setBusy(true);if(edit){await TMCloud.api('update_user',{id:edit.id,name:form.name,role:form.role,status:form.status});if(form.password)await TMCloud.api('reset_password',{id:edit.id,password:form.password});}else await TMCloud.api('create_user',{...form,technician_id:form.username.split('@')[1]});setEdit(null);setForm(blank);await load();onShowToast('Account saved to Supabase.','success');}catch(e){onShowToast(e.message,'error')}finally{setBusy(false)}};
- const field=(key,label,type='text')=>(0,N.jsxs)('label',{className:'ot-field',children:[label,(0,N.jsx)('input',{className:'form-control',type,value:form[key]||'',required:key==='name'||!edit&&['username','password'].includes(key),minLength:key==='password'?8:undefined,disabled:busy||!!edit&&['username','email'].includes(key),onChange:e=>setForm({...form,[key]:e.target.value})})]});
- return (0,N.jsxs)('section',{className:'callouts-header-card',children:[(0,N.jsx)('h2',{children:'Cloud user management'}),(0,N.jsx)('p',{children:'Accounts are stored in Supabase Auth. Suspending access retains historical records.'}),
- (0,N.jsxs)('form',{onSubmit:save,className:'ot-fields',children:[field('name','Name'),field('username','Username'),field('email','Recovery email (optional)','email'),field('password',edit?'New password (optional)':'Password','password'),(0,N.jsxs)('label',{children:['Role',(0,N.jsx)(ThemedSelect,{value:form.role,onChange:e=>setForm({...form,role:e.target.value}),children:['Administrator','Admin','Coordinator','Technician'].filter(role=>allowed({role})).map(role=>(0,N.jsx)('option',{value:role,children:role},role))})]}),edit&&(0,N.jsxs)('label',{children:['Status',(0,N.jsx)(ThemedSelect,{value:form.status,onChange:e=>setForm({...form,status:e.target.value}),children:['Active','Suspended'].map(v=>(0,N.jsx)('option',{value:v,children:v},v))})]}),(0,N.jsx)('button',{type:'submit',className:'btn btn-primary',disabled:busy,children:busy?'Saving…':edit?'Save account':'Create account'}),edit&&(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:()=>{setEdit(null);setForm(blank)},children:'Cancel'})]}),
- (0,N.jsx)(ResponsiveTable,{className:'callouts-table',children:(0,N.jsx)('tbody',{children:users.map(user=>(0,N.jsxs)('tr',{children:[...[user.name,user.username,user.role,user.status].map((v,i)=>(0,N.jsx)('td',{children:v},i)),(0,N.jsxs)('td',{children:[(0,N.jsx)('button',{className:'btn btn-outline',disabled:busy||user.id===currentUser.id||!allowed(user),onClick:()=>{setEdit(user);setForm({...blank,...user,password:''})},children:'Edit / reset password'}),(0,N.jsx)('button',{className:'btn btn-danger',disabled:busy||user.id===currentUser.id||!allowed(user),onClick:()=>action('delete_user',user),children:'Suspend'})]})]},user.id))})})]});
+ const load=async()=>{try{const result=await TMCloud.api('users');setUsers(result.users);setError('');}catch(e){setError(e.message);}};
+ _.useEffect(()=>{load();},[]);
+ const reset=()=>{setEdit(null);setForm({...blank});};
+ const repair=async()=>{setBusy(true);try{const result=await TMCloud.api('provision_technicians');TMCloud.showCredentials(result.credentials);await load();onShowToast(result.failed.length?'Some logins could not be created: '+result.failed.join(', '):result.credentials.length?'Missing technician logins created.':'All technicians already have linked logins.',result.failed.length?'error':'success');}catch(e){setError(e.message);}finally{setBusy(false);}};
+ const suspend=async user=>{if(!await AppDialog.confirm('Suspend access for '+user.username+'?'))return;setBusy(true);try{await TMCloud.api('delete_user',{id:user.id});await load();onShowToast('Account suspended; history retained.','success');}catch(e){setError(e.message);}finally{setBusy(false);}};
+ const save=async e=>{e.preventDefault();setBusy(true);try{if(edit){await TMCloud.api('update_user',{id:edit.id,name:form.name,role:form.role,status:form.status});if(form.password)await TMCloud.api('reset_password',{id:edit.id,password:form.password});}else await TMCloud.api('create_user',{...form,technician_id:form.technician_id||form.username.split('@')[1]});reset();await load();onShowToast('Account saved to Supabase.','success');}catch(e){setError(e.message);}finally{setBusy(false);}};
+ const field=(key,label,type='text')=>h('label',{className:'cloud-field',htmlFor:'cloud-account-'+key},label,h('input',{id:'cloud-account-'+key,name:'cloud-account-'+key,className:'form-control',type,value:form[key]||'',autoComplete:key==='password'?'new-password':'off',required:key==='name'||!edit&&['username','password'].includes(key),minLength:key==='password'?8:undefined,disabled:busy||!!edit&&['username','email','technician_id'].includes(key),onChange:e=>setForm({...form,[key]:e.target.value})}));
+ const select=(key,label,options)=>h('label',{className:'cloud-field',htmlFor:'cloud-account-'+key},label,h(ThemedSelect,{id:'cloud-account-'+key,value:form[key],disabled:busy,onChange:e=>setForm({...form,[key]:e.target.value})},...options.map(v=>h('option',{value:v,key:v},v))));
+ return h('section',{className:'callouts-header-card cloud-accounts'},
+  h('div',{className:'cloud-account-heading'},h('div',null,h('h2',null,'User management'),h('p',null,'Manage logins and access. New technicians receive a linked login automatically.')),h('button',{className:'btn btn-outline',disabled:busy,onClick:repair},'Create missing technician logins')),
+  error&&h('div',{role:'alert',className:'cloud-account-error'},error,h('button',{type:'button',className:'btn btn-outline',disabled:busy,onClick:load},'Retry')),
+  h('form',{onSubmit:save,autoComplete:'off',className:'cloud-account-form'},h('h3',null,edit?'Edit account':'Create account'),field('name','Full name'),field('username','Login username'),field('email','Recovery email (optional)','email'),field('password',edit?'New password (optional)':'Password','password'),select('role','Account role',['Administrator','Admin','Coordinator','Technician'].filter(role=>allowed({role}))),field('technician_id','Technician ID (for linked staff)'),edit&&select('status','Account status',['Active','Suspended']),h('div',{className:'cloud-account-buttons'},h('button',{type:'submit',className:'btn btn-primary',disabled:busy},busy?'Saving…':edit?'Save changes':'Create account'),edit&&h('button',{type:'button',className:'btn btn-outline',disabled:busy,onClick:reset},'Cancel'))),
+  h('div',{className:'cloud-account-list-heading'},h('h3',null,'Accounts ('+users.length+')')),
+  h(ResponsiveTable,{className:'callouts-table cloud-account-table'},h('thead',null,h('tr',null,...['Name','Username','Role','Status','Actions'].map(v=>h('th',{key:v},v)))),h('tbody',null,...users.map(user=>h('tr',{key:user.id},h('td',null,user.name),h('td',null,user.username),h('td',null,user.role),h('td',null,h('span',{className:'cloud-account-status'},user.status)),h('td',null,user.id===currentUser.id?h('span',{className:'cloud-account-self'},'Your account'):h('div',{className:'cloud-account-row-actions'},h('button',{className:'btn btn-outline',disabled:busy||!allowed(user),onClick:()=>{setEdit(user);setForm({...blank,...user,password:''});}},'Edit / reset password'),h('button',{className:'btn btn-danger',disabled:busy||!allowed(user),onClick:()=>suspend(user)},'Suspend'))))),!users.length&&h('tr',null,h('td',{colSpan:5},error?'Accounts could not be loaded. Use Retry above.':'No accounts to display.')))));
 };
 var LocalUserManagementView = ({
   currentUser,
@@ -14130,7 +14136,7 @@ var TechniciansManagementView = ({
     setNewSatTeam('');
     setNewRosTeam('');
 
-    if (onShowToast) onShowToast('Technician saved. Create the cloud login in User management.', 'success');
+    if (onShowToast) onShowToast('Technician saved. Its linked login is being created in Supabase.', 'success');
   };
 
   // Start Editing Technician
@@ -14458,7 +14464,7 @@ var TechniciansManagementView = ({
             onSubmit: handleAddTech,
             style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))", gap: 12, alignItems: "flex-end" },
             children: [
-              (0,N.jsx)('p',{className:'ot-note',children:'Create the technician login in User management after saving the technician profile.'}),
+              (0,N.jsx)('p',{className:'ot-note',children:'Saving a new technician creates a linked login automatically. Copy the generated credentials when they appear.'}),
               (0, N.jsxs)("div", {
                 children: [
                   (0, N.jsx)("label", { style: { fontSize: "12px", fontWeight: 600, display: "block", marginBottom: 4, color: "var(--text-secondary)" }, children: "Technician Full Name *" }),

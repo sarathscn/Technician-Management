@@ -10,6 +10,19 @@ const admin = createClient(url,secret,{auth:{persistSession:false,autoRefreshTok
 const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json'}});
 const manage=(actor:string,target:string)=>actor==='Administrator'||actor==='Admin'&&['Coordinator','Technician'].includes(target)||actor==='Coordinator'&&target==='Technician';
 const fail=(error:unknown)=>{if(error)throw Error('Database operation failed.');};
+async function provisionTechnician(tech:any){
+ const id=String(tech.id||'');
+ if(!/^\d{1,5}$/.test(id)||!String(tech.name||'').trim())throw Error('Invalid technician');
+ const {data:linked,error:lookup}=await admin.from('tm_profiles').select('id').eq('technician_id',id).limit(1);fail(lookup);
+ if(linked?.length)return null;
+ const username=(String(tech.name).trim().toLowerCase().replace(/[^a-z0-9._-]/g,'')||'technician')+'@'+id;
+ const password='Tm!'+crypto.randomUUID().replaceAll('-','').slice(0,18);
+ const {data,error}=await admin.auth.admin.createUser({email:username.replace('@','.')+'@technician-management.invalid',password,email_confirm:true});
+ if(error||!data.user)throw Error('Could not provision technician login');
+ const {error:profileError}=await admin.from('tm_profiles').insert({id:data.user.id,username,name:String(tech.name).trim(),technician_id:id,role:'Technician',status:'Active'});
+ if(profileError){await admin.auth.admin.deleteUser(data.user.id);throw Error('Could not link technician login');}
+ return {name:tech.name,username,password,technician_id:id};
+}
 
 Deno.serve(async request=>{
  if(request.method==='OPTIONS')return new Response(null,{headers:cors});
@@ -34,6 +47,13 @@ Deno.serve(async request=>{
   const {data:actor,error:actorError}=await admin.from('tm_profiles').select('*').eq('id',verified.user.id).eq('status','Active').single();
   if(actorError||!actor)return reply({error:'Account inactive'},403);
   if(input.action==='me')return reply({profile:actor});
+  if(input.action==='provision_technicians'){
+   if(!['Administrator','Admin','Coordinator'].includes(actor.role))return reply({error:'Access denied'},403);
+   const {data,error}=await admin.from('tm_records').select('payload').eq('kind','technician');fail(error);
+   const credentials=[];const failed=[];
+   for(const row of data||[]){try{const account=await provisionTechnician(row.payload);if(account)credentials.push(account);}catch{failed.push(String(row.payload.id));}}
+   return reply({credentials,failed});
+  }
   if(input.action==='snapshot'){
    const manager=['Administrator','Admin','Coordinator'].includes(actor.role);
    let query=admin.from('tm_records').select('*').order('kind').order('id');
@@ -54,6 +74,10 @@ Deno.serve(async request=>{
   if(input.action==='save_record'){
    const {data,error}=await admin.rpc('tm_save_record',{p_actor:actor.id,p_kind:input.kind,p_id:input.id,p_payload:input.payload||{},p_version:Number(input.version||0),p_delete:!!input.deleted});
    if(error)return reply({error:error.message.includes('CONFLICT')?'Another user updated this record. Reload before saving.':'Database save denied or invalid record.'},error.message.includes('CONFLICT')?409:403);
+   if(input.kind==='technician'&&!input.deleted&&['Administrator','Admin','Coordinator'].includes(actor.role)){
+    try{const credential=await provisionTechnician(data.payload);return reply({record:data,credentials:credential?[credential]:[]});}
+    catch{return reply({record:data,accountWarning:'Technician saved, but login creation failed. Use Create missing technician logins in User Management to retry.'});}
+   }
    return reply({record:data});
   }
   if(input.action==='users'){
@@ -66,7 +90,7 @@ Deno.serve(async request=>{
    if(!manage(actor.role,role))return reply({error:'Role assignment denied'},403);
    const username=String(input.username||'').trim().toLowerCase();
    const name=String(input.name||'').trim();
-   if(!/^[a-z0-9._-]+@[a-z0-9_-]+$/.test(username)||!name||String(input.password||'').length<8)return reply({error:'Valid username, name and password of at least 8 characters required'},400);
+   if(!/^[a-z0-9._-]+(?:@[a-z0-9_-]+)?$/.test(username)||!name||String(input.password||'').length<8)return reply({error:'Valid username, name and password of at least 8 characters required'},400);
    const email=String(input.email||username.replace('@','.')+'@technician-management.invalid').trim().toLowerCase();
    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return reply({error:'Valid account email required'},400);
    const {data,error}=await admin.auth.admin.createUser({email,password:input.password,email_confirm:true});
