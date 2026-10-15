@@ -3397,6 +3397,18 @@ function unassignCalloutFromDay(day,callout) {
   return {...day,allocations:remove(day.allocations||[]),customSections:(day.customSections||[]).map(section=>({...section,rows:remove(section.rows||[])}))};
 }
 
+function mobileAccountSummary(user) {
+ const account=normalizeAccount(user),role=account.role==='Administrator'?'Super Admin':account.role;
+ const name=String(account.name||'').trim();
+ const generic=['super admin','administrator','admin','coordinator','technician'];
+ const title=!name||generic.includes(name.toLowerCase())||name.toLowerCase()===String(account.username||'').toLowerCase()?role:name;
+ return {name:title,role:title.toLowerCase()===String(role).toLowerCase()?'':role};
+}
+var MobileMenuAccount=({currentUser,onDashboard})=>{
+ const summary=mobileAccountSummary(currentUser);
+ return (0,N.jsxs)('section',{className:'mobile-menu-account',children:[(0,N.jsx)('strong',{children:summary.name}),summary.role&&(0,N.jsx)('span',{className:'mobile-menu-role',children:summary.role}),(0,N.jsx)('div',{className:'mobile-menu-account-actions',children:(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:onDashboard,children:'Dashboard'})})]});
+};
+
 var MobileNavigationDrawer = ({children,onClose,id,account,onSignOut}) => {
   const dialog=(0,_.useRef)(null);
   (0,_.useLayoutEffect)(()=>{
@@ -3409,8 +3421,7 @@ var MobileNavigationDrawer = ({children,onClose,id,account,onSignOut}) => {
     element.addEventListener('cancel',cancel);query.addEventListener('change',resize);
     return()=>{element.removeEventListener('cancel',cancel);query.removeEventListener('change',resize);document.body.style.overflow=oldOverflow;previous?.focus?.();};
   },[]);
-  return (0,N.jsxs)('dialog',{ref:dialog,id,className:'mobile-navigation-dialog no-print','aria-label':'Navigation',children:[
-    (0,N.jsxs)('div',{className:'mobile-drawer-heading',children:[(0,N.jsx)('strong',{children:'Navigation'}),(0,N.jsx)('button',{type:'button',className:'drawer-close-button','aria-label':'Close navigation',onClick:onClose,children:(0,N.jsx)(IconX,{size:20})})]}),
+  return (0,N.jsxs)('dialog',{ref:dialog,id,className:'mobile-navigation-dialog no-print','aria-label':'Main menu',onClick:event=>{if(event.target!==event.currentTarget)return;const rect=event.currentTarget.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)onClose();},children:[
     account,
     (0,N.jsx)('nav',{'aria-label':'Main navigation',className:'mobile-drawer-links',children}),
     (0,N.jsx)('div',{className:'mobile-menu-footer',children:(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:onSignOut,children:'Sign out'})})
@@ -17043,7 +17054,7 @@ var NominationLoginGreeting=({currentUser,roster})=>{
         // Mobile Nav Drawer (Collapsible on Mobile/Tablet)
         isMobileMenuOpen && (0, N.jsxs)(MobileNavigationDrawer, {
           onSignOut:()=>{setIsMobileMenuOpen(false);handleLogout();},
-          account: (0,N.jsxs)('section',{className:'mobile-menu-account',children:[(0,N.jsx)('strong',{children:currentUser.name||normalizeAccount(currentUser).username}),(0,N.jsx)('span',{children:normalizeAccount(currentUser).username}),(0,N.jsx)('span',{className:'mobile-menu-role',children:normalizeAccount(currentUser).role}),(0,N.jsxs)('div',{className:'mobile-menu-account-actions',children:[(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:()=>{setActiveTab(['Administrator','Admin','Coordinator'].includes(currentUser.role)?'admin':'dashboard');setIsMobileMenuOpen(false);},children:'Dashboard'})]})]}),
+          account: (0,N.jsx)(MobileMenuAccount,{currentUser,onDashboard:()=>{setActiveTab(['Administrator','Admin','Coordinator'].includes(currentUser.role)?'admin':'dashboard');setIsMobileMenuOpen(false);}}),
           onClose: () => setIsMobileMenuOpen(false),
           className: "mobile-nav-drawer no-print",
           id: "mobile-navigation",
