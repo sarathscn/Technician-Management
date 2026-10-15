@@ -2990,6 +2990,8 @@ html[data-theme] #printable-allocation-sheet.capturing-image { width:1120px !imp
 .dashboard-documents .documents-table td:last-child{grid-column:1 / -1;border-bottom:0;align-items:flex-start}
 .dashboard-documents .documents-table td:last-child:before{display:none}
 }
+
+.transfer-actions{display:flex;flex-wrap:wrap;gap:10px}.transfer-preview{border-top:1px solid var(--border-light);margin-top:12px;padding-top:12px}.technician-transfer p{overflow-wrap:anywhere}.overtime-invitation-notice{position:fixed;bottom:18px;right:18px;width:min(370px,calc(100vw - 32px));max-height:60vh;overflow:auto;z-index:1100;background:var(--surface);border:1px solid var(--border-light);box-shadow:var(--shadow-dropdown);border-radius:14px;padding:14px;box-sizing:border-box}.overtime-invitation-notice summary{font-weight:700;cursor:pointer;color:var(--text-main)}.overtime-invitation-list article{padding:12px 0;border-top:1px solid var(--border-light);margin-top:12px;overflow-wrap:anywhere}.overtime-invitation-list p{margin:6px 0;color:var(--text-muted);font-size:13px}
 </style></head>
   <body>
     <div id="root"></div>
@@ -3251,6 +3253,52 @@ var ListPagination=({pagination:p,alwaysVisible=false})=>p.pages<=1&&!alwaysVisi
  (0,N.jsxs)('div',{className:'list-page-buttons',children:[(0,N.jsx)('button',{type:'button',className:'list-page-arrow','aria-label':'Previous page',title:'Previous page',disabled:p.page===1,onClick:()=>p.setPage(p.page-1),children:'‹'}),(0,N.jsx)('button',{type:'button',className:'list-page-arrow','aria-label':'Next page',title:'Next page',disabled:p.page===p.pages,onClick:()=>p.setPage(p.page+1),children:'›'})]})
 ]});
 
+
+function transferTechnicianKey(id){return String(id??'').trim().replace(/^0+(?=\d)/,'');}
+function prepareTechnicianImport(data,existing){
+ const rows=Array.isArray(data)?data:data?.technicians;
+ if(!Array.isArray(rows)||rows.length>1000)throw Error('Choose a technician JSON export containing up to 1,000 technicians.');
+ const seen=new Set(existing.map(t=>transferTechnicianKey(t.id))),added=[],invalid=[];let skipped=0;
+ for(const row of rows){
+  const id=String(row?.id??'').trim(),name=String(row?.name??'').trim();
+  if(seen.has(transferTechnicianKey(id))){skipped++;continue;}
+  const json=JSON.stringify(row);
+  if(!row||typeof row!=='object'||!/^\d{1,5}$/.test(id)||!name||name.length>100||row.mobileNumber&&!/^\d{8}$/.test(String(row.mobileNumber))||row.passes&&!Array.isArray(row.passes)||gatePassValidationError(technicianPasses(row))||json.length>200000||/"(?:password|access_token|refresh_token|__proto__|constructor|prototype)"\s*:/.test(json)){invalid.push(id||'Missing ID');continue;}
+  seen.add(transferTechnicianKey(id));added.push({...row,id,name});
+ }
+ return {added,skipped,invalid,saturdayTeams:Array.isArray(data?.saturdayTeams)?data.saturdayTeams:[],calloutTeams:Array.isArray(data?.calloutTeams)?data.calloutTeams:[]};
+}
+function mergeImportedTeams(settings,source,ids,max=100){
+ const selected=new Set(ids.map(transferTechnicianKey));const teams=(settings?.teams||[]).map(t=>({...t,technicianIds:[...(t.technicianIds||[])]}));
+ for(const team of source){if(!team||typeof team.id!=='string'||!Array.isArray(team.technicianIds))continue;const members=team.technicianIds.filter(id=>selected.has(transferTechnicianKey(id))).map(String);if(!members.length)continue;
+  let target=teams.find(t=>t.id===team.id);if(!target){if(teams.length>=max)throw Error('The imported callout teams exceed the four-team limit.');target={...team,technicianIds:[]};teams.push(target);}
+  target.technicianIds=[...new Set([...target.technicianIds,...members])];
+ }
+ return {...settings,teams};
+}
+var TechnicianTransferControls=({technicians,saturdaySettings,calloutRoster,onSaveTechnicians,onSaveSaturdaySettings,onSaveCalloutRoster,onShowToast})=>{
+ const file=(0,_.useRef)(null),[plan,setPlan]=(0,_.useState)(null),[busy,setBusy]=(0,_.useState)(false),[message,setMessage]=(0,_.useState)('');
+ const exportData=()=>{const data={format:'technician-management',version:1,exportedAt:new Date().toISOString(),technicians,saturdayTeams:saturdaySettings?.teams||[],calloutTeams:calloutRoster?.teams||[]};const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='Technicians-'+localDateISO()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);};
+ const preview=async ev=>{const chosen=ev.target.files?.[0];ev.target.value='';if(!chosen)return;try{if(chosen.size>10*1024*1024)throw Error('Choose a JSON file smaller than 10 MB.');const next=prepareTechnicianImport(JSON.parse(await chosen.text()),technicians);mergeImportedTeams(calloutRoster,next.calloutTeams,next.added.map(t=>t.id),4);setPlan(next);setMessage('');}catch(e){setMessage(e.message);setPlan(null);}};
+ const apply=async()=>{if(!plan||busy)return;setBusy(true);const added=[],failed=[],credentials=[];let skipped=plan.skipped,warnings=0;
+  try{
+   if(window.TMCloud){for(const tech of plan.added){try{setMessage('Importing '+(added.length+failed.length+1)+' of '+plan.added.length+'…');const result=await TMCloud.api('import_technician',{technician:tech});if(result.skipped)skipped++;else{added.push(tech);credentials.push(...(result.credentials||[]));if(result.accountWarning)warnings++;}}catch(e){failed.push(tech.id+': '+e.message);}}await TMCloud.refresh();}
+   else{const latest=JSON.parse(localStorage.getItem('amc_technicians')||'[]');const fresh=prepareTechnicianImport({technicians:plan.added},latest);skipped+=fresh.skipped;if(onSaveTechnicians([...latest,...fresh.added])===false)throw Error('Technician validation failed.');added.push(...fresh.added);}
+   const ids=added.map(t=>t.id);if(ids.length){const sat=mergeImportedTeams(saturdaySettings,plan.saturdayTeams,ids);const roster=mergeImportedTeams(calloutRoster,plan.calloutTeams,ids,4);if(plan.saturdayTeams.length)onSaveSaturdaySettings?.(sat);if(plan.calloutTeams.length)onSaveCalloutRoster?.(roster);}
+   setMessage(added.length+' imported · '+skipped+' existing skipped · '+plan.invalid.length+' invalid skipped'+(failed.length?' · '+failed.length+' failed: '+failed.join('; '):'')+(warnings?' · '+warnings+' login(s) need retry in User management.':''));setPlan(null);if(credentials.length)TMCloud.showCredentials(credentials);onShowToast('Technician import complete.',failed.length?'error':'success');
+  }catch(e){setMessage(e.message+' Imported records remain saved; importing the file again will skip them.');}finally{setBusy(false);}
+ };
+ return (0,N.jsxs)('section',{className:'callouts-header-card technician-transfer',children:[(0,N.jsxs)('div',{className:'transfer-actions',children:[(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:busy,onClick:()=>file.current.click(),children:'Import technicians'}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:busy,onClick:exportData,children:'Export technicians'}),(0,N.jsx)('input',{ref:file,type:'file',accept:'.json,application/json',hidden:true,'aria-label':'Technician import file',onChange:preview})]}),(0,N.jsx)('p',{className:'ot-note',children:'Full-data JSON backup: profiles, documents, gate passes and team assignments. Existing technician IDs are skipped.'}),message&&(0,N.jsx)('p',{role:'status',children:message}),plan&&(0,N.jsxs)('div',{className:'transfer-preview',children:[(0,N.jsx)('p',{children:plan.added.length+' new · '+plan.skipped+' existing skipped · '+plan.invalid.length+' invalid skipped'}),!!plan.invalid.length&&(0,N.jsx)('p',{children:'Invalid IDs: '+plan.invalid.join(', ')}),(0,N.jsxs)('div',{className:'transfer-actions',children:[(0,N.jsx)('button',{type:'button',className:'btn btn-primary',disabled:busy||!plan.added.length,onClick:apply,children:busy?'Importing…':'Import '+plan.added.length+' technicians'}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:busy,onClick:()=>setPlan(null),children:'Cancel'})]})]})]});
+};
+function loadOvertimeInvitations(){try{return JSON.parse(localStorage.getItem('amc_overtime_invitations')||'[]');}catch(e){return [];}}
+var OvertimeInvitationNotice=({currentUser,onShowToast})=>{
+ const [items,setItems]=(0,_.useState)(loadOvertimeInvitations),[busy,setBusy]=(0,_.useState)('');
+ (0,_.useEffect)(()=>{const refresh=()=>setItems(loadOvertimeInvitations());window.addEventListener('tm-cloud-update',refresh);window.addEventListener('storage',refresh);return()=>{window.removeEventListener('tm-cloud-update',refresh);window.removeEventListener('storage',refresh);};},[]);
+ if(currentUser.role!=='Technician'||!items.length)return null;
+ const accept=async item=>{if(busy)return;setBusy(item.id);try{await TMCloud.api('accept_overtime',{id:item.id});setItems(old=>old.filter(i=>i.id!==item.id));await TMCloud.refresh();onShowToast('Added to your overtime. Open Overtime to review your sheet.','success');}catch(e){onShowToast(e.message,'error');}finally{setBusy('');}};
+ return (0,N.jsxs)('details',{className:'overtime-invitation-notice',open:true,children:[(0,N.jsx)('summary',{children:items.length+' overtime invitation'+(items.length===1?'':'s')}),(0,N.jsx)('div',{className:'overtime-invitation-list',children:items.map(item=>(0,N.jsxs)('article',{children:[(0,N.jsx)('strong',{children:(item.ownerName||'A technician')+' included you in overtime'}),(0,N.jsx)('p',{children:item.date+' · '+item.start+'–'+item.end}),(0,N.jsx)('p',{children:[item.work,item.client,item.location].filter(Boolean).join(' · ')}),(0,N.jsx)('button',{type:'button',className:'btn btn-primary',disabled:!!busy,onClick:()=>accept(item),children:busy===item.id?'Adding…':'Add to my overtime'})]},item.id))})]});
+};
+
 var OvertimeView=({currentUser,technicians=[],onShowToast})=>{
   let directory=[];try{directory=JSON.parse(localStorage.getItem('amc_technician_directory')||'[]');}catch(e){}
   const teamDirectory=window.TMCloud?directory:[...new Map(technicians.filter(t=>!['Administrator','Admin','Coordinator'].includes(t.role)).map(t=>[String(t.id),{id:String(t.id),name:t.name}])).values()];
@@ -3282,7 +3330,7 @@ var OvertimeView=({currentUser,technicians=[],onShowToast})=>{
   const save=ev=>{
     ev.preventDefault();if(!isTechnician)return;if(!valid())return;
     const record={...draft,id:form.id||'ot-'+Date.now(),createdAt:form.createdAt||new Date().toISOString()};
-    try {const all=loadOvertimeRecords();const next=[record,...all.filter(r=>r.id!==record.id)];localStorage.setItem('amc_overtime_records',JSON.stringify(next));setRecords(next);setForm({...record});setSelected(record);onShowToast('Overtime saved on this device.','success');}catch(e){onShowToast('Could not save overtime. Please export your sheet.','error');}
+    try {const all=loadOvertimeRecords();const next=[record,...all.filter(r=>r.id!==record.id)];localStorage.setItem('amc_overtime_records',JSON.stringify(next));setRecords(next);setForm({...record});setSelected(record);onShowToast(form.teamIds.length?'Overtime saved. Selected team members will receive an invitation.':'Overtime saved.','success');}catch(e){onShowToast('Could not save overtime. Please export your sheet.','error');}
   };
   (0,_.useEffect)(()=>{const refresh=ev=>{if(ev.key==='amc_overtime_records')setRecords(loadOvertimeRecords());};const cloudRefresh=()=>refresh({key:'amc_overtime_records'});window.addEventListener('storage',refresh);window.addEventListener('tm-cloud-update',cloudRefresh);return()=>{window.removeEventListener('storage',refresh);window.removeEventListener('tm-cloud-update',cloudRefresh);};},[]);
   const ready=()=>selected||valid();
@@ -3332,7 +3380,7 @@ var OvertimeView=({currentUser,technicians=[],onShowToast})=>{
         (0,N.jsxs)('div',{className:'ot-team',children:[(0,N.jsx)('label',{children:'Team members (optional)'}),(0,N.jsx)(TechnicianMultiSelect,{technicians:teamTechnicians,value:form.teamIds,onChange:ids=>update('teamIds',ids)})]}),
         (0,N.jsxs)('div',{className:'ot-field ot-field-approvedBy',children:[(0,N.jsx)('label',{children:'Approved by *'}),(0,N.jsxs)(ThemedSelect,{className:'form-control',required:true,'aria-label':'Approved by coordinator',value:form.approvedById||'',onChange:ev=>{const coordinator=coordinators.find(u=>u.id===ev.target.value);setForm(old=>({...old,approvedById:coordinator?.id||'',approvedBy:coordinator?.name||''}));setSelected(null);},children:[(0,N.jsx)('option',{value:'',children:'Choose coordinator'}),...coordinators.map(u=>(0,N.jsx)('option',{value:u.id,children:u.name},u.id))]}),!coordinators.length&&(0,N.jsx)('p',{className:'ot-note',children:'Add an active Coordinator account in User management before saving overtime.'})]})]}),
         (0,N.jsxs)('div',{className:'ot-actions',children:[(0,N.jsx)('button',{type:'submit',className:'btn btn-primary',children:'Save overtime'}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:busy,onClick:share,children:busy?'Preparing…':'Share with coordinator'}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:busy,onClick:print,children:'Save as PDF'}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',disabled:busy,onClick:copy,children:'Copy as image'})]}),
-        (0,N.jsx)('p',{className:'ot-note',children:'Saved sheets stay on this device. Share opens your device’s share menu, or downloads an image to attach to your message.'})
+        (0,N.jsx)('p',{className:'ot-note',children:window.TMCloud?'Saved sheets sync to your account. Selected team members receive an invitation to add their own overtime.':'Saved sheets stay on this device. Share opens your device’s share menu, or downloads an image to attach to your message.'})
       ]}),
       (0,N.jsxs)('div',{className:'ot-preview-panel',children:[(0,N.jsx)('h3',{children:'Sheet preview'}),(0,N.jsx)('div',{className:'ot-preview-scroll',children:(0,N.jsx)('div',{ref:sheetRef,className:'ot-sheet',dangerouslySetInnerHTML:{__html:overtimeSheetHTML(displayed)}})})]})
     ]}),
@@ -14639,6 +14687,7 @@ var TechniciansManagementView = ({
         ]
       }),
 
+      (0,N.jsx)(TechnicianTransferControls,{technicians,saturdaySettings,calloutRoster,onSaveTechnicians,onSaveSaturdaySettings,onSaveCalloutRoster,onShowToast}),
       // Add New Technician Card (Full Centralized Profile Form)
       !isAddOpen&&(0,N.jsx)('div',{className:'callouts-header-card',children:(0,N.jsx)('button',{type:'button',className:'btn btn-primary',onClick:()=>{setErrorMsg('');setIsAddOpen(true);},children:'Add Technician'})}),
       isAddOpen&&(0, N.jsxs)("div", {
@@ -17486,6 +17535,7 @@ var NominationLoginGreeting=({currentUser,roster})=>{
           )
         }),
 
+        (0,N.jsx)(OvertimeInvitationNotice,{key:currentUser.id,currentUser,onShowToast:showToast}),
         (0,N.jsx)(NominationLoginGreeting,{key:currentUser.id+':'+(calloutRoster?.calloutOfMonth?.month||'')+':'+(calloutRoster?.calloutOfMonth?.techId||''),currentUser,roster:calloutRoster}),
         // Cloud Sync, Change Password & User Management Modals
         (0, N.jsx)(CloudSyncSettingsModal, {
