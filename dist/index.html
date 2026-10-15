@@ -12558,22 +12558,23 @@ var CloudAccounts=({currentUser,onShowToast})=>{
  const h=_.createElement;
  const [users,setUsers]=_.useState([]),[busy,setBusy]=_.useState(false),[edit,setEdit]=_.useState(null),[error,setError]=_.useState('');
  const blank={name:'',username:'',email:'',password:'',technician_id:'',role:currentUser.role==='Coordinator'?'Technician':'Coordinator',status:'Active'};
- const [form,setForm]=_.useState(blank);
+ const [form,setForm]=_.useState(blank),[showForm,setShowForm]=_.useState(false),[audit,setAudit]=_.useState(null);
  const allowed=u=>currentUser.role==='Administrator'||currentUser.role==='Admin'&&['Coordinator','Technician'].includes(u.role)||currentUser.role==='Coordinator'&&u.role==='Technician';
  const load=async()=>{try{const result=await TMCloud.api('users');setUsers(result.users);setError('');}catch(e){setError(e.message);}};
  _.useEffect(()=>{load();},[]);
- const reset=()=>{setEdit(null);setForm({...blank});};
- const repair=async()=>{setBusy(true);try{const result=await TMCloud.api('provision_technicians');TMCloud.showCredentials(result.credentials);await load();onShowToast(result.failed.length?'Some logins could not be created: '+result.failed.join(', '):result.credentials.length?'Missing technician logins created.':'All technicians already have linked logins.',result.failed.length?'error':'success');}catch(e){setError(e.message);}finally{setBusy(false);}};
+ const reset=()=>{setEdit(null);setForm({...blank});setShowForm(false);};
+ const repair=async()=>{setBusy(true);try{const result=await TMCloud.api('provision_technicians');TMCloud.showCredentials(result.credentials);await load();setAudit(result);onShowToast(result.failed.length?'Some technician logins need attention.':'Technician login check complete.',result.failed.length?'error':'success');}catch(e){setError(e.message);}finally{setBusy(false);}};
  const suspend=async user=>{if(!await AppDialog.confirm('Suspend access for '+user.username+'?'))return;setBusy(true);try{await TMCloud.api('delete_user',{id:user.id});await load();onShowToast('Account suspended; history retained.','success');}catch(e){setError(e.message);}finally{setBusy(false);}};
  const save=async e=>{e.preventDefault();setBusy(true);try{if(edit){await TMCloud.api('update_user',{id:edit.id,name:form.name,role:form.role,status:form.status});if(form.password)await TMCloud.api('reset_password',{id:edit.id,password:form.password});}else await TMCloud.api('create_user',{...form,technician_id:form.technician_id||form.username.split('@')[1]});reset();await load();onShowToast('Account saved to Supabase.','success');}catch(e){setError(e.message);}finally{setBusy(false);}};
  const field=(key,label,type='text')=>h('label',{className:'cloud-field',htmlFor:'cloud-account-'+key},label,h('input',{id:'cloud-account-'+key,name:'cloud-account-'+key,className:'form-control',type,value:form[key]||'',autoComplete:key==='password'?'new-password':'off',required:key==='name'||!edit&&['username','password'].includes(key),minLength:key==='password'?8:undefined,disabled:busy||!!edit&&['username','email','technician_id'].includes(key),onChange:e=>setForm({...form,[key]:e.target.value})}));
  const select=(key,label,options)=>h('label',{className:'cloud-field',htmlFor:'cloud-account-'+key},label,h(ThemedSelect,{id:'cloud-account-'+key,value:form[key],disabled:busy,onChange:e=>setForm({...form,[key]:e.target.value})},...options.map(v=>h('option',{value:v,key:v},v))));
  return h('section',{className:'callouts-header-card cloud-accounts'},
-  h('div',{className:'cloud-account-heading'},h('div',null,h('h2',null,'User management'),h('p',null,'Manage logins and access. New technicians receive a linked login automatically.')),h('button',{className:'btn btn-outline',disabled:busy,onClick:repair},'Create missing technician logins')),
+  h('div',{className:'cloud-account-heading'},h('div',null,h('h2',null,'User management'),h('p',null,'Manage logins and access. New technicians receive a linked login automatically.')),h('div',{className:'cloud-account-buttons'},h('button',{type:'button',className:'btn btn-outline',disabled:busy,onClick:repair},busy?'Checking…':'Create missing technician logins'),h('button',{type:'button',className:'btn btn-primary',disabled:busy,'aria-expanded':showForm||!!edit,'aria-controls':'create-account-form',onClick:()=>{reset();setShowForm(true);}},'Create account'))),
   error&&h('div',{role:'alert',className:'cloud-account-error'},error,h('button',{type:'button',className:'btn btn-outline',disabled:busy,onClick:load},'Retry')),
-  h('form',{onSubmit:save,autoComplete:'off',className:'cloud-account-form'},h('h3',null,edit?'Edit account':'Create account'),field('name','Full name'),field('username','Login username'),field('email','Recovery email (optional)','email'),field('password',edit?'New password (optional)':'Password','password'),select('role','Account role',['Administrator','Admin','Coordinator','Technician'].filter(role=>allowed({role}))),field('technician_id','Technician ID (for linked staff)'),edit&&select('status','Account status',['Active','Suspended']),h('div',{className:'cloud-account-buttons'},h('button',{type:'submit',className:'btn btn-primary',disabled:busy},busy?'Saving…':edit?'Save changes':'Create account'),edit&&h('button',{type:'button',className:'btn btn-outline',disabled:busy,onClick:reset},'Cancel'))),
+  audit&&h('p',{role:'status',className:'ot-note'},'Checked '+audit.checked+' technicians: '+audit.existing+' existing logins, '+audit.credentials.length+' created, '+audit.skipped+' admin/coordinator records excluded, '+audit.inactive+' suspended. '+(audit.failed.length?'Needs attention: '+audit.failed.join(', '):'No missing logins remain.')),
+  (showForm||edit)&&h('form',{id:'create-account-form',onSubmit:save,autoComplete:'off',className:'cloud-account-form'},h('h3',null,edit?'Edit account':'Create account'),field('name','Full name'),field('username','Login username'),field('email','Recovery email (optional)','email'),field('password',edit?'New password (optional)':'Password','password'),select('role','Account role',['Administrator','Admin','Coordinator','Technician'].filter(role=>allowed({role}))),field('technician_id','Technician ID (for linked staff)'),edit&&select('status','Account status',['Active','Suspended']),h('div',{className:'cloud-account-buttons'},h('button',{type:'submit',className:'btn btn-primary',disabled:busy},busy?'Saving…':edit?'Save changes':'Create account'),h('button',{type:'button',className:'btn btn-outline',disabled:busy,onClick:reset},'Cancel'))),
   h('div',{className:'cloud-account-list-heading'},h('h3',null,'Accounts ('+users.length+')')),
-  h(ResponsiveTable,{className:'callouts-table cloud-account-table'},h('thead',null,h('tr',null,...['Name','Username','Role','Status','Actions'].map(v=>h('th',{key:v},v)))),h('tbody',null,...users.map(user=>h('tr',{key:user.id},h('td',{'data-label':'Name'},user.name),h('td',{'data-label':'Username'},user.username),h('td',{'data-label':'Role'},user.role),h('td',{'data-label':'Status'},h('span',{className:'cloud-account-status'},user.status)),h('td',{'data-label':'Actions'},user.id===currentUser.id?h('span',{className:'cloud-account-self'},'Your account'):h('div',{className:'cloud-account-row-actions'},h('button',{className:'btn btn-outline',disabled:busy||!allowed(user),onClick:()=>{setEdit(user);setForm({...blank,...user,password:''});}},'Edit / reset password'),h('button',{className:'btn btn-danger',disabled:busy||!allowed(user),onClick:()=>suspend(user)},'Suspend'))))),!users.length&&h('tr',null,h('td',{colSpan:5},error?'Accounts could not be loaded. Use Retry above.':'No accounts to display.')))));
+  h(ResponsiveTable,{className:'callouts-table cloud-account-table'},h('thead',null,h('tr',null,...['Name','Username','Role','Status','Actions'].map(v=>h('th',{key:v},v)))),h('tbody',null,...users.map(user=>h('tr',{key:user.id},h('td',{'data-label':'Name'},user.name),h('td',{'data-label':'Username'},user.username),h('td',{'data-label':'Role'},user.role),h('td',{'data-label':'Status'},h('span',{className:'cloud-account-status'},user.status)),h('td',{'data-label':'Actions'},user.id===currentUser.id?h('span',{className:'cloud-account-self'},'Your account'):h('div',{className:'cloud-account-row-actions'},h('button',{className:'btn btn-outline',disabled:busy||!allowed(user),onClick:()=>{setShowForm(true);setEdit(user);setForm({...blank,...user,password:''});}},'Edit / reset password'),h('button',{className:'btn btn-danger',disabled:busy||!allowed(user),onClick:()=>suspend(user)},'Suspend'))))),!users.length&&h('tr',null,h('td',{colSpan:5},error?'Accounts could not be loaded. Use Retry above.':'No accounts to display.')))));
 };
 var LocalUserManagementView = ({
   currentUser,
@@ -14105,6 +14106,7 @@ var TechniciansManagementView = ({
   onShowToast
 }) => {
   let [searchQuery, setSearchQuery] = (0, _.useState)('');
+  const [isAddOpen,setIsAddOpen]=(0,_.useState)(false);
   let [newName, setNewName] = (0, _.useState)('');
   let [newId, setNewId] = (0, _.useState)('');
   const emptyDocuments=()=>({cprNumber:'',cprExpiryDate:'',visaNumber:'',passes:[],visaExpiryDate:'',availablePass:'',passLocation:'',passNumber:'',passExpiryDate:''});
@@ -14214,6 +14216,7 @@ var TechniciansManagementView = ({
     setNewSatTeam('');
     setNewRosTeam('');
 
+    setIsAddOpen(false);
     if (onShowToast) onShowToast('Technician saved. Its linked login is being created in Supabase.', 'success');
   };
 
@@ -14527,12 +14530,13 @@ var TechniciansManagementView = ({
       }),
 
       // Add New Technician Card (Full Centralized Profile Form)
-      (0, N.jsxs)("div", {
+      !isAddOpen&&(0,N.jsx)('div',{className:'callouts-header-card',children:(0,N.jsx)('button',{type:'button',className:'btn btn-primary',onClick:()=>{setErrorMsg('');setIsAddOpen(true);},children:'Add Technician'})}),
+      isAddOpen&&(0, N.jsxs)("div", {
         className: "callouts-header-card",
         children: [
           (0, N.jsxs)("h3", {
             style: { fontSize: "14.5px", fontWeight: 700, color: "var(--text-main)", margin: "0 0 12px 0", display: "flex", alignItems: "center", gap: 6 },
-            children: [(0, N.jsx)(IconPlus, { size: 16 }), "Add New Technician Profile"]
+            children: [(0, N.jsx)(IconPlus, { size: 16 }), 'Add New Technician Profile',(0,N.jsx)('button',{type:'button',className:'btn btn-outline',style:{marginLeft:'auto'},onClick:()=>setIsAddOpen(false),children:'Cancel'})]
           }),
           errorMsg && (0, N.jsxs)("div", {
             style: { display: "flex", alignItems: "center", gap: 6, color: "#B91C1C", fontSize: "12px", marginBottom: 12, backgroundColor: "#FEE2E2", padding: "6px 10px", borderRadius: 4 },
