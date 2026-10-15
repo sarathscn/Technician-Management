@@ -2,7 +2,7 @@
 begin;
 create or replace function public.tm_save_record(
  p_actor uuid,p_kind text,p_id text,p_payload jsonb,p_version bigint,p_delete boolean default false
-) returns jsonb language plpgsql security definer set search_path='' as $$
+) returns jsonb language plpgsql security invoker set search_path='' as $$
 declare actor public.tm_profiles; old_record public.tm_records; saved public.tm_records;
 begin
  select * into actor from public.tm_profiles where id=p_actor and status='Active';
@@ -38,5 +38,8 @@ end $$;
 revoke all on function public.tm_save_record(uuid,text,text,jsonb,bigint,boolean) from public,anon,authenticated;
 grant execute on function public.tm_save_record(uuid,text,text,jsonb,bigint,boolean) to service_role;
 revoke insert,update,delete on public.tm_records from authenticated;
+revoke execute on function public.tm_role(),public.tm_technician_id() from anon;
+revoke execute on function public.tm_record_stamp() from public,anon,authenticated;
 commit;
+
 
