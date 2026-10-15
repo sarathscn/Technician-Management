@@ -1,0 +1,2 @@
+[functions.tm-api]
+verify_jwt = false

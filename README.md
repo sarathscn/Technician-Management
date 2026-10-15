@@ -19,4 +19,3 @@ Hosted login fails until the backend is deployed. There is no default administra
 ## Updates and data
 
 Frontend changes pushed to the linked GitHub branch trigger Vercel deployment. Changes made inside the running app are saved separately to Supabase, after successful authentication and server deployment; they do not create Git commits. Cross-device record updates are checked every 15 seconds while no field or popup is active. Failed saves are clearly marked and retained locally for recovery.
-
