@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
 
 // Deploy with gateway JWT verification disabled: login is public, every other
 // action verifies the access token and active profile explicitly below.
@@ -102,3 +102,4 @@ Deno.serve(async request=>{
   return reply({error:'Unsupported action'},400);
  }catch{return reply({error:'Request failed. Check server configuration and request fields.'},400);}
 });
+
