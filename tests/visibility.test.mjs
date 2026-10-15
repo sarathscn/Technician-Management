@@ -26,4 +26,3 @@ test('other records retain ownership restrictions',()=>{
  const records=[{kind:'technician',technician_id:'089'},{kind:'technician',technician_id:'170'},{kind:'leave',technician_id:'89'},{kind:'overtime',owner_id:'u'},{kind:'overtime',owner_id:'other'},{kind:'leave_request',owner_id:'u'},{kind:'holiday'},{kind:'team_settings'},{kind:'callout_roster'}];
  assert.deepEqual(technicianSnapshot(records,'89','u').map(r=>r.kind),['technician','leave','overtime','leave_request','holiday','team_settings']);
 });
-

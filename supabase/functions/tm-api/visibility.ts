@@ -23,4 +23,3 @@ export function technicianSnapshot(records: any[], technicianId: unknown, ownerI
   return [];
  });
 }
-

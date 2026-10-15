@@ -13036,10 +13036,9 @@ var CalloutsManagementView = ({
   onShowToast
 }) => {
   let isViewer = currentUser && currentUser.role === 'Technician';
-  // VIEWER STRICT FILTER: Viewers can only view Pending, Scheduled, or Re-Scheduled callouts
-  let visibleCallouts = isViewer
-    ? (callouts || []).filter(c => c && ['Pending', 'Scheduled', 'Re-Scheduled'].includes(c.status))
-    : (callouts || []);
+  // Technicians can review every status of their own assigned callouts.
+  let visibleCallouts = (callouts || []).filter(c => c && (!isViewer ||
+    accountMatchesTechnician(currentUser,c.rescheduledTechnicianId || c.assignedTechnicianId)));
   let [isImportModalOpen, setIsImportModalOpen] = (0, _.useState)(!1);
   let [searchQuery, setSearchQuery] = (0, _.useState)('');
   let [statusFilter, setStatusFilter] = (0, _.useState)('All');
@@ -13058,8 +13057,8 @@ var CalloutsManagementView = ({
   let pendingCount = visibleCallouts.filter(c => c && c.status === 'Pending').length;
   let scheduledCount = visibleCallouts.filter(c => c && c.status === 'Scheduled').length;
   let rescheduledCount = visibleCallouts.filter(c => c && c.status === 'Re-Scheduled').length;
-  let completedCount = isViewer ? 0 : visibleCallouts.filter(c => c && c.status === 'Completed').length;
-  let cancelledCount = isViewer ? 0 : visibleCallouts.filter(c => c && c.status === 'Cancelled').length;
+  let completedCount = visibleCallouts.filter(c => c && c.status === 'Completed').length;
+  let cancelledCount = visibleCallouts.filter(c => c && c.status === 'Cancelled').length;
 
   let filtered = (visibleCallouts || []).filter(c => {
     if (!c) return !1;
@@ -13242,7 +13241,7 @@ var CalloutsManagementView = ({
                   (0, N.jsx)("div", { className: "summary-card-label", children: "Re-Scheduled" })
                 ]
               }),
-              !isViewer && (0, N.jsxs)("div", {
+              (0, N.jsxs)("div", {
                 className: "summary-card" + (statusFilter === 'Completed' ? " active" : ""),
                 onClick: () => setStatusFilter('Completed'),
                 style: { borderLeft: "4px solid #107C41", cursor: "pointer", backgroundColor: statusFilter === 'Completed' ? "#DCFCE7" : "var(--surface-alt)" },
@@ -13251,7 +13250,7 @@ var CalloutsManagementView = ({
                   (0, N.jsx)("div", { className: "summary-card-label", children: "Completed" })
                 ]
               }),
-              !isViewer && (0, N.jsxs)("div", {
+              (0, N.jsxs)("div", {
                 className: "summary-card" + (statusFilter === 'Cancelled' ? " active" : ""),
                 onClick: () => setStatusFilter('Cancelled'),
                 style: { borderLeft: "4px solid #DC2626", cursor: "pointer", backgroundColor: statusFilter === 'Cancelled' ? "#FEE2E2" : "var(--surface-alt)" },
@@ -13308,12 +13307,7 @@ var CalloutsManagementView = ({
                 value: statusFilter,
                 onChange: val => setStatusFilter(val),
                 style: { width: "165px" },
-                options: isViewer ? [
-                  { value: "All", label: "Status: All Visible" },
-                  { value: "Pending", label: "Pending" },
-                  { value: "Scheduled", label: "Scheduled" },
-                  { value: "Re-Scheduled", label: "Re-Scheduled" }
-                ] : [
+                options: [
                   { value: "All", label: "Status: All Statuses" },
                   { value: "Pending", label: "Pending" },
                   { value: "Scheduled", label: "Scheduled" },
@@ -13434,7 +13428,7 @@ var CalloutsManagementView = ({
                           children: [
                             (0, N.jsx)(IconPhone, { size: 32, style: { color: "#D1D5DB" } }),
                             (0, N.jsx)("div", { style: { fontSize: "14px", fontWeight: 600, color: "var(--text-secondary)" }, children: "No callout records found" }),
-                            (0, N.jsx)("div", { style: { fontSize: "12.5px" }, children: isViewer ? "There are no pending, scheduled, or rescheduled callouts at this time." : "Click '+ Add Callout' to create your first maintenance or service ticket." }),
+                            (0, N.jsx)("div", { style: { fontSize: "12.5px" }, children: isViewer ? "No callouts match your assignments and current filters." : "Click '+ Add Callout' to create your first maintenance or service ticket." }),
                             !isViewer && (0, N.jsxs)("button", {
                               type: "button",
                               className: "btn btn-primary",
