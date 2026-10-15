@@ -2992,6 +2992,8 @@ html[data-theme] #printable-allocation-sheet.capturing-image { width:1120px !imp
 }
 
 .transfer-actions{display:flex;flex-wrap:wrap;gap:10px}.transfer-preview{border-top:1px solid var(--border-light);margin-top:12px;padding-top:12px}.technician-transfer p{overflow-wrap:anywhere}.overtime-invitation-notice{position:fixed;bottom:18px;right:18px;width:min(370px,calc(100vw - 32px));max-height:60vh;overflow:auto;z-index:1100;background:var(--surface);border:1px solid var(--border-light);box-shadow:var(--shadow-dropdown);border-radius:14px;padding:14px;box-sizing:border-box}.overtime-invitation-notice summary{font-weight:700;cursor:pointer;color:var(--text-main)}.overtime-invitation-list article{padding:12px 0;border-top:1px solid var(--border-light);margin-top:12px;overflow-wrap:anywhere}.overtime-invitation-list p{margin:6px 0;color:var(--text-muted);font-size:13px}
+
+.account-technician-link{border:0;padding:3px 0;background:transparent;color:var(--primary,#17665c);font:inherit;text-align:left;text-decoration:underline;text-underline-offset:3px;cursor:pointer;overflow-wrap:anywhere}.account-technician-link:hover{color:var(--text-main)}.account-technician-link:focus-visible{outline:2px solid var(--primary);outline-offset:3px;border-radius:3px}.technician-focus-note{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
 </style></head>
   <body>
     <div id="root"></div>
@@ -3461,7 +3463,7 @@ var AdministratorDashboard = props => {
   if(!['Administrator','Admin','Coordinator'].includes(props.currentUser?.role))return (0,N.jsx)('div',{className:'callouts-header-card',children:'Administrator access required.'});
   return (0,N.jsxs)('section',{className:'administrator-dashboard',children:[
     (0,N.jsxs)('div',{className:'callouts-header-card dashboard-heading',children:[(0,N.jsxs)('div',{children:[(0,N.jsx)('h2',{children:section==='passes'?'Pass management':props.currentUser.role==='Coordinator'?'Coordinator dashboard':props.currentUser.role==='Admin'?'Admin dashboard':'Super Admin dashboard'}),(0,N.jsx)('p',{children:'Operations, accounts and system settings.'})]}),section!=='overview'&&(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:()=>setSection('overview'),children:'Back to dashboard'})]}),
-    section==='passes'?(0,N.jsx)(DashboardDocuments,props):section==='users'?(0,N.jsx)(UserManagementView,{currentUser:props.currentUser,onShowToast:props.onShowToast}):section==='holidays'?(0,N.jsx)(HolidaysManagementView,{holidays:props.holidays,currentDate:props.currentDate,onSaveHolidays:props.onSaveHolidays,onShowToast:props.onShowToast}):(0,N.jsxs)(N.Fragment,{children:[
+    section==='passes'?(0,N.jsx)(DashboardDocuments,props):section==='users'?(0,N.jsx)(UserManagementView,{currentUser:props.currentUser,onShowToast:props.onShowToast,onOpenTechnician:props.onOpenTechnician}):section==='holidays'?(0,N.jsx)(HolidaysManagementView,{holidays:props.holidays,currentDate:props.currentDate,onSaveHolidays:props.onSaveHolidays,onShowToast:props.onShowToast}):(0,N.jsxs)(N.Fragment,{children:[
       (0,N.jsx)(DashboardOverview,{...props,admin:true}),
       (0,N.jsx)(DashboardExpiryAlerts,props),
       (0,N.jsxs)('div',{className:'admin-dashboard-grid',children:[(0,N.jsxs)('button',{type:'button',className:'admin-dashboard-card',onClick:()=>props.onNavigate('overtime'),children:[(0,N.jsx)('strong',{children:'Overtime sheets'}),(0,N.jsx)('span',{children:'Review and export all users’ overtime.'})]}),(0,N.jsxs)('button',{type:'button',className:'admin-dashboard-card',onClick:()=>setSection('passes'),children:[(0,N.jsx)('strong',{children:'Pass management'}),(0,N.jsx)('span',{children:'Manage CPR, visa validity and available passes.'})]}),(0,N.jsxs)('button',{type:'button',className:'admin-dashboard-card',onClick:()=>setSection('users'),children:[(0,N.jsx)('strong',{children:'User management'}),(0,N.jsx)('span',{children:'Create usernames, set roles and manage access.'})]}),props.currentUser.role==='Administrator'&&(0,N.jsxs)('button',{type:'button',className:'admin-dashboard-card',onClick:props.onOpenSettings,children:[(0,N.jsx)('strong',{children:'Cloud Sync & Settings'}),(0,N.jsx)('span',{children:'Connections and backup tools.'})]}),(0,N.jsxs)('button',{type:'button',className:'admin-dashboard-card',onClick:()=>setSection('holidays'),children:[(0,N.jsx)('strong',{children:'Holidays'}),(0,N.jsx)('span',{children:'Manage Bahrain public and custom holidays.'})]}),(0,N.jsxs)('button',{type:'button',className:'admin-dashboard-card',onClick:props.onChangePassword,children:[(0,N.jsx)('strong',{children:'Password update'}),(0,N.jsx)('span',{children:'Update your account password.'})]})]})
@@ -12705,7 +12707,7 @@ var CloudSyncSettingsModal = ({
 // DEDICATED USER MANAGEMENT VIEW COMPONENT (SUPER ADMIN ONLY)
 // =========================================================================
 var UserManagementView=props=>window.TMCloud?(0,N.jsx)(CloudAccounts,props):(0,N.jsx)(LocalUserManagementView,props);
-var CloudAccounts=({currentUser,onShowToast})=>{
+var CloudAccounts=({currentUser,onShowToast,onOpenTechnician})=>{
  const h=_.createElement;
  const [users,setUsers]=_.useState([]),[busy,setBusy]=_.useState(false),[edit,setEdit]=_.useState(null),[error,setError]=_.useState('');
  const pagination=useListPagination(users,'Accounts','',currentUser);
@@ -12716,7 +12718,7 @@ var CloudAccounts=({currentUser,onShowToast})=>{
  _.useEffect(()=>{load();},[]);
  const reset=()=>{setEdit(null);setForm({...blank});setShowForm(false);};
  const repair=async()=>{setBusy(true);try{const result=await TMCloud.api('provision_technicians');TMCloud.showCredentials(result.credentials);await load();setAudit(result);onShowToast(result.failed.length?'Some technician logins need attention.':'Technician login check complete.',result.failed.length?'error':'success');}catch(e){setError(e.message);}finally{setBusy(false);}};
- const suspend=async user=>{if(!await AppDialog.confirm('Suspend access for '+user.username+'?'))return;setBusy(true);try{await TMCloud.api('delete_user',{id:user.id});await load();onShowToast('Account suspended; history retained.','success');}catch(e){setError(e.message);}finally{setBusy(false);}};
+ const toggleStatus=async user=>{const status=user.status==='Suspended'?'Active':'Suspended';if(!await AppDialog.confirm((status==='Active'?'Activate':'Suspend')+' access for '+user.username+'?',{title:status==='Active'?'Activate account':'Suspend account',confirmLabel:status==='Active'?'Activate':'Suspend'}))return;setBusy(true);setError('');try{await TMCloud.api('update_user',{id:user.id,status});await load();await TMCloud.refresh();onShowToast(status==='Active'?'Account activated. The user can sign in again.':'Account suspended. User access has been revoked.','success');}catch(e){setError(e.message);}finally{setBusy(false);}};
  const save=async e=>{e.preventDefault();setBusy(true);try{if(edit){await TMCloud.api('update_user',{id:edit.id,name:form.name,role:form.role,status:form.status});if(form.password)await TMCloud.api('reset_password',{id:edit.id,password:form.password});}else await TMCloud.api('create_user',{...form,technician_id:form.technician_id||form.username.split('@')[1]});reset();await load();onShowToast('Account saved to Supabase.','success');}catch(e){setError(e.message);}finally{setBusy(false);}};
  const field=(key,label,type='text')=>h('label',{className:'cloud-field',htmlFor:'cloud-account-'+key},label,h('input',{id:'cloud-account-'+key,name:'cloud-account-'+key,className:'form-control',type,value:form[key]||'',autoComplete:key==='password'?'new-password':'off',required:key==='name'||!edit&&['username','password'].includes(key),minLength:key==='password'?8:undefined,disabled:busy||!!edit&&['username','email','technician_id'].includes(key),onChange:e=>setForm({...form,[key]:e.target.value})}));
  const select=(key,label,options)=>h('label',{className:'cloud-field',htmlFor:'cloud-account-'+key},label,h(ThemedSelect,{id:'cloud-account-'+key,value:form[key],disabled:busy,onChange:e=>setForm({...form,[key]:e.target.value})},...options.map(v=>h('option',{value:v,key:v},v))));
@@ -12726,9 +12728,10 @@ var CloudAccounts=({currentUser,onShowToast})=>{
   audit&&h('p',{role:'status',className:'ot-note'},'Checked '+audit.checked+' technicians: '+audit.existing+' existing logins, '+audit.credentials.length+' created, '+audit.skipped+' admin/coordinator records excluded, '+audit.inactive+' suspended. '+(audit.failed.length?'Needs attention: '+audit.failed.join(', '):'No missing logins remain.')),
   (showForm||edit)&&h('form',{id:'create-account-form',onSubmit:save,autoComplete:'off',className:'cloud-account-form'},h('h3',null,edit?'Edit account':'Create account'),field('name','Full name'),field('username','Login username'),field('email','Recovery email (optional)','email'),field('password',edit?'New password (optional)':'Password','password'),select('role','Account role',['Administrator','Admin','Coordinator','Technician'].filter(role=>allowed({role}))),field('technician_id','Technician ID (for linked staff)'),edit&&select('status','Account status',['Active','Suspended']),h('div',{className:'cloud-account-buttons'},h('button',{type:'submit',className:'btn btn-primary',disabled:busy},busy?'Saving…':edit?'Save changes':'Create account'),h('button',{type:'button',className:'btn btn-outline',disabled:busy,onClick:reset},'Cancel'))),
   h('div',{className:'cloud-account-list-heading'},h('h3',null,'Accounts ('+users.length+')')),
-  h(ResponsiveTable,{className:'callouts-table cloud-account-table'},h('thead',null,h('tr',null,...['Name','Username','Role','Status','Actions'].map(v=>h('th',{key:v},v)))),h('tbody',null,...pagination.items.map(user=>h('tr',{key:user.id},h('td',{'data-label':'Name'},user.name),h('td',{'data-label':'Username'},user.username),h('td',{'data-label':'Role'},user.role),h('td',{'data-label':'Status'},h('span',{className:'cloud-account-status'},user.status)),h('td',{'data-label':'Actions'},user.id===currentUser.id?h('span',{className:'cloud-account-self'},'Your account'):h('div',{className:'cloud-account-row-actions'},h('button',{className:'btn btn-outline',disabled:busy||!allowed(user),onClick:()=>{setShowForm(true);setEdit(user);setForm({...blank,...user,password:''});}},'Edit / reset password'),h('button',{className:'btn btn-danger',disabled:busy||!allowed(user),onClick:()=>suspend(user)},'Suspend'))))),!users.length&&h('tr',null,h('td',{colSpan:5},error?'Accounts could not be loaded. Use Retry above.':'No accounts to display.')))),h(ListPagination,{pagination,alwaysVisible:true}));
+  h(ResponsiveTable,{className:'callouts-table cloud-account-table'},h('thead',null,h('tr',null,...['Name','Username','Role','Status','Actions'].map(v=>h('th',{key:v},v)))),h('tbody',null,...pagination.items.map(user=>h('tr',{key:user.id},h('td',{'data-label':'Name'},(user.technician_id||user.username?.split('@')[1])&&onOpenTechnician?h('button',{type:'button',className:'account-technician-link',title:'Open linked technician',onClick:()=>onOpenTechnician(user.technician_id||user.username.split('@')[1])},user.name):user.name),h('td',{'data-label':'Username'},(user.technician_id||user.username?.split('@')[1])&&onOpenTechnician?h('button',{type:'button',className:'account-technician-link',title:'Open linked technician',onClick:()=>onOpenTechnician(user.technician_id||user.username.split('@')[1])},user.username):user.username),h('td',{'data-label':'Role'},user.role),h('td',{'data-label':'Status'},h('span',{className:'cloud-account-status'},user.status)),h('td',{'data-label':'Actions'},user.id===currentUser.id?h('span',{className:'cloud-account-self'},'Your account'):h('div',{className:'cloud-account-row-actions'},h('button',{className:'btn btn-outline',disabled:busy||!allowed(user),onClick:()=>{setShowForm(true);setEdit(user);setForm({...blank,...user,password:''});}},'Edit / reset password'),h('button',{type:'button',className:user.status==='Suspended'?'btn btn-primary':'btn btn-danger',disabled:busy||!allowed(user),onClick:()=>toggleStatus(user)},user.status==='Suspended'?'Activate':'Suspend'))))),!users.length&&h('tr',null,h('td',{colSpan:5},error?'Accounts could not be loaded. Use Retry above.':'No accounts to display.')))),h(ListPagination,{pagination,alwaysVisible:true}));
 };
 var LocalUserManagementView = ({
+  onOpenTechnician,
   currentUser,
   onShowToast
 }) => {
@@ -13054,7 +13057,7 @@ var LocalUserManagementView = ({
                                 style: { width: 26, height: 26, borderRadius: "50%", backgroundColor: rBg, color: rColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: 800 },
                                 children: u.name ? u.name.charAt(0).toUpperCase() : "U"
                               }),
-                              u.name
+                              (onOpenTechnician&&normalizeAccount(u).technicianNumber?(0,N.jsx)('button',{type:'button',className:'account-technician-link',onClick:()=>onOpenTechnician(normalizeAccount(u).technicianNumber),children:u.name}):u.name)
                             ]
                           })
                         }),
@@ -14252,6 +14255,7 @@ var ThursdayRosterReminderModal = ({
 // 1. CENTRALIZED TECHNICIANS MANAGEMENT VIEW
 // =========================================================================
 var TechniciansManagementView = ({
+  focusedTechnicianId='',onClearFocus,
   technicians,
   leaves,
   currentDate,
@@ -14520,6 +14524,7 @@ var TechniciansManagementView = ({
 
   // Filter technicians
   let filtered = sortedTechs.filter(t => {
+    if(focusedTechnicianId)return transferTechnicianKey(t.id)===transferTechnicianKey(focusedTechnicianId);
     if (filterRole === 'available' && onLeaveTodayTechIds.includes(t.id)) return false;
     if (filterRole === 'on-leave' && !onLeaveTodayTechIds.includes(t.id)) return false;
     if (filterRole === 'cotm' && (!activeCotm || activeCotm.techId !== t.id)) return false;
@@ -14531,7 +14536,7 @@ var TechniciansManagementView = ({
       (t.role || '').toLowerCase().includes(q);
   });
 
-  const pagination=useListPagination(filtered,'Technicians',JSON.stringify([searchQuery,filterRole]));
+  const pagination=useListPagination(filtered,'Technicians',JSON.stringify([searchQuery,filterRole,focusedTechnicianId]));
   return (0, N.jsxs)("div", {
     className: "callouts-container",
     children: [
@@ -14802,6 +14807,7 @@ var TechniciansManagementView = ({
         ]
       }),
 
+      focusedTechnicianId&&(0,N.jsxs)('div',{className:'callouts-header-card technician-focus-note',children:[(0,N.jsx)('span',{children:(filtered.length?'Showing linked technician':'No technician profile found')+' · ID '+focusedTechnicianId}),(0,N.jsx)('button',{type:'button',className:'btn btn-outline',onClick:()=>{onClearFocus?.();setSearchQuery('');setFilterRole('all');},children:'Show all technicians'})]}),
       // Technicians List Table Card
       (0, N.jsxs)("div", {
         className: "callouts-header-card",
@@ -16372,6 +16378,7 @@ var NominationLoginGreeting=({currentUser,roster})=>{
       return { id: 'u-1', name: 'Administrator', username: 'administrator', technicianNumber: '001', role: 'Administrator' };
     });
 
+    const [focusedTechnicianId,setFocusedTechnicianId]=(0,_.useState)('');
     // Navigation Tabs: 'allocation' | 'callouts' | 'saturday' | 'roster' | 'technicians' | 'leaves' | 'holidays' | 'users'
     let [activeTab, setActiveTab] = (0, _.useState)(() => {
       try {const saved=JSON.parse(localStorage.getItem('amc_auth_session')||sessionStorage.getItem('amc_auth_session')||'null');return ['Administrator','Admin','Coordinator'].includes(validatedStoredSession()?.user?.role)?'admin':'dashboard';}catch(e){return 'dashboard';}
@@ -17501,6 +17508,7 @@ var NominationLoginGreeting=({currentUser,roster})=>{
           ) : activeTab === 'technicians' ? (
             // ==================== TAB 5: TECHNICIANS MANAGEMENT ====================
             (0, N.jsx)(TechniciansManagementView, {
+              focusedTechnicianId,onClearFocus:()=>setFocusedTechnicianId(''),
               technicians: technicians,
               leaves: leaves,
               currentDate: selectedDate,
@@ -17526,6 +17534,7 @@ var NominationLoginGreeting=({currentUser,roster})=>{
             (0, N.jsx)(AdministratorDashboard, {
               currentUser: currentUser,
               dayData: currentDayData, technicians, callouts, currentDate: selectedDate, onNavigate: setActiveTab,
+              onOpenTechnician: id=>{setFocusedTechnicianId(String(id));setActiveTab('technicians');setIsMobileMenuOpen(false);window.scrollTo({top:0,behavior:'instant'});},
               onSaveDocuments:handleSaveDocuments,
               onOpenSettings: () => setIsSettingsModalOpen(true),
               onChangePassword: () => setIsChangePasswordOpen(true),
