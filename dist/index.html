@@ -4568,7 +4568,7 @@ var loadBahrainHolidaysFromStorage = () => {
     let raw = localStorage.getItem('amc_bahrain_holidays');
     if (raw) {
       let parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch (err) {
     console.error('Failed to load Bahrain holidays from storage:', err);
