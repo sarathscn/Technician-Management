@@ -2958,6 +2958,20 @@ html[data-theme] #printable-allocation-sheet.capturing-image { width:1120px !imp
 .list-page-size,.list-page-buttons{display:flex;align-items:center;gap:8px;white-space:nowrap}.list-page-size select{width:64px;min-height:36px;border:1px solid #b4cfca;border-radius:7px;background:var(--surface,#fff);color:var(--text-main);padding:5px 8px;font:inherit}.list-page-range{white-space:nowrap;font-variant-numeric:tabular-nums}.list-page-arrow{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-width:36px;padding:0;border:1px solid #c9ddda;border-radius:7px;background:transparent;color:var(--text-main);font:24px/1 system-ui;cursor:pointer;box-shadow:none}.list-page-arrow:hover:not(:disabled){background:var(--surface-alt,#e7f1ed)}.list-page-arrow:focus-visible,.list-page-size select:focus-visible{outline:2px solid #1c7568;outline-offset:2px}.list-page-arrow:disabled{opacity:.35;cursor:default}
 @media(max-width:900px){.list-pagination{justify-content:space-between;gap:10px;font-size:12px}.list-page-buttons{gap:4px}.list-page-arrow{width:44px;height:44px;min-width:44px}.list-page-size{gap:6px}.list-page-size select{width:60px;min-height:40px}}
 @media(max-width:350px){.list-pagination{gap:5px}.list-page-size{gap:4px}.list-page-arrow{width:40px;min-width:40px}.list-page-size select{width:56px}}
+
+@media(max-width:900px){
+.saturday-summary .saturday-summary-heading{display:grid!important;grid-template-columns:minmax(0,1fr);gap:16px!important}
+.saturday-summary h2{align-items:flex-start!important;font-size:18px!important;line-height:1.35}
+.saturday-summary h2 svg{flex:0 0 22px;margin-top:2px}
+.saturday-summary h2+p{margin-top:8px!important;line-height:1.5}
+.saturday-summary .saturday-anchor-field{display:grid!important;grid-template-columns:minmax(0,1fr);align-items:start!important;gap:6px!important;width:100%}
+.saturday-summary .saturday-anchor-field .form-control{width:100%!important;max-width:none!important;min-height:44px;box-sizing:border-box}
+.saturday-summary .summary-cards-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+.saturday-summary .summary-card{min-height:84px;padding:12px!important;box-shadow:none}
+.saturday-summary .summary-card:last-child{grid-column:1 / -1;min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.saturday-summary .summary-card:last-child .summary-card-count{white-space:normal!important;overflow:visible!important;overflow-wrap:anywhere}
+.saturday-summary .summary-card:last-child .summary-card-label{text-align:right}
+}
 </style></head>
   <body>
     <div id="root"></div>
@@ -5802,9 +5816,10 @@ var SaturdayDutyManagementView = ({
     children: [
       // Top Card: Header & Alternate Saturday Setup
       (0, N.jsxs)("div", {
-        className: "callouts-header-card",
+        className: "callouts-header-card saturday-summary",
         children: [
           (0, N.jsxs)("div", {
+            className: "saturday-summary-heading",
             style: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 14 },
             children: [
               (0, N.jsxs)("div", {
@@ -5823,6 +5838,7 @@ var SaturdayDutyManagementView = ({
                 ]
               }),
               (0, N.jsxs)("div", {
+                className: "saturday-anchor-field",
                 style: { display: "flex", alignItems: "center", gap: 8 },
                 children: [
                   (0, N.jsx)("label", { style: { fontSize: "12px", fontWeight: 600, color: "var(--text-secondary)" }, children: "Reference Anchor Saturday:" }),
