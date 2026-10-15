@@ -77,3 +77,9 @@ test('password provider errors are returned to the modal',async()=>{
  const a=app({handler:url=>url.endsWith('/auth/v1/user')?{status:422,ok:false,json:async()=>({msg:'New password should be different from the old password.'})}:null});
  await a.cloud.start();await assert.rejects(a.cloud.changePassword('example-only'),/different from the old/);assert.equal(a.reloads(),0);
 });
+test('routine cloud notifications stay quiet while errors remain visible',async()=>{
+ const a=app();let created=0;a.context.document.getElementById=()=>null;a.context.document.createElement=()=>{created++;return {style:{},setAttribute(){}};};
+ await a.cloud.start();assert.equal(created,0);
+ a.cloud.banner('Saving changes to Supabase…');a.cloud.banner('Saved to Supabase');assert.equal(created,0);
+ a.cloud.banner('Could not save your changes.',true);assert.equal(created,1);
+});

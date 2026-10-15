@@ -8428,6 +8428,14 @@ var Et = ({
   ]
 });
 
+function allocationTechnicians(technicians) {
+ if(window.TMCloud){
+  try{const directory=JSON.parse(localStorage.getItem('amc_technician_directory')||'[]');return technicians.filter(t=>directory.some(member=>String(member.id)===String(t.id)));}catch(e){return [];}
+ }
+ let accounts=[];try{accounts=JSON.parse(localStorage.getItem('amc_system_users')||'[]');}catch(e){}
+ return technicians.filter(t=>!['Administrator','Admin','Coordinator'].includes(t.role)&&!accounts.some(account=>['Administrator','Admin','Coordinator'].includes(account.role)&&accountMatchesTechnician(account,t.id)));
+}
+
 // Technician Allocation Table with Overtime Column, Drag-and-Drop, Split, Merge, Delete Only, and Active Leave Prevention
 var Dt = ({
   rows: e,
@@ -8448,7 +8456,7 @@ var Dt = ({
   holidays: holList = [],
   saturdaySettings: satSettings = null
 }) => {
-  let p = [...t].sort((e, t) => e.name.localeCompare(t.name, void 0, { sensitivity: "base" }));
+  let p = allocationTechnicians(t).sort((e, t) => e.name.localeCompare(t.name, void 0, { sensitivity: "base" }));
   let m = d ? e.filter(e => e.technicianId || (e.projectLocation && e.projectLocation.trim())) : e;
 
   let isDayFri = isFriday(r);
