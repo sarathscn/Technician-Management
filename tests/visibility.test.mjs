@@ -1,6 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {technicianSnapshot,sameTechnician} from '../supabase/functions/tm-api/visibility.ts';
+import {technicianSnapshot,sameTechnician,technicianDirectory} from '../supabase/functions/tm-api/visibility.ts';
+
+test('team directory includes all technicians and excludes personal details',()=>{
+ const records=[{kind:'technician',id:'181',payload:{name:'Sarath',mobileNumber:'12345678',cprNumber:'private'}},{kind:'technician',id:'170',payload:{name:'Abhijith',passes:[{number:'private'}]}},{kind:'leave',id:'private',payload:{name:'Leave'}}];
+ assert.deepEqual(technicianDirectory(records),[{id:'170',name:'Abhijith'},{id:'181',name:'Sarath'}]);
+});
 
 test('IDs match dashboard rules without matching missing IDs',()=>{
  assert.equal(sameTechnician('089',89),true);

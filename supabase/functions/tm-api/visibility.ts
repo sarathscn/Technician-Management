@@ -5,6 +5,12 @@ export function sameTechnician(left: unknown, right: unknown): boolean {
  return !!id && id===normalize(right);
 }
 
+export function technicianDirectory(records: any[]): {id: string, name: string}[] {
+ return records.filter(record=>record.kind==='technician').map(record=>({
+  id:String(record.id),name:String(record.payload?.name||record.id)
+ })).sort((a,b)=>a.name.localeCompare(b.name));
+}
+
 export function technicianSnapshot(records: any[], technicianId: unknown, ownerId: string): any[] {
  return records.flatMap(record=>{
   const payload=record.payload||{};
