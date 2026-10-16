@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
 import { technicianSnapshot, technicianDirectory, sameTechnician } from './visibility.ts';
 import { deleteLinkedAuthUsers } from './account-cleanup.ts';
 import { auditTechnicianLogins } from './login-audit.ts';
+import { createTemporaryPassword } from './account-security.ts';
 import { overtimeInvitations, invitedOvertimeCopy, validateTechnicianImport } from './overtime-transfer.ts';
 
 // Deploy with gateway JWT verification disabled: login is public, every other
@@ -26,7 +27,7 @@ async function provisionTechnician(tech:any){
  const {data:linked,error:lookup}=await admin.from('tm_profiles').select('id').eq('technician_id',id).limit(1);fail(lookup);
  if(linked?.length)return null;
  const username=(String(tech.name).trim().toLowerCase().replace(/[^a-z0-9._-]/g,'')||'technician')+'@'+id;
- const password=capitalUsername(username);
+ const password=createTemporaryPassword();
  const {data,error}=await admin.auth.admin.createUser({email:username.replace('@','.')+'@technician-management.invalid',password,email_confirm:true});
  if(error||!data.user)throw Error('Could not provision technician login');
  const {error:profileError}=await admin.from('tm_profiles').insert({id:data.user.id,username,name:String(tech.name).trim(),technician_id:id,role:'Technician',status:'Active'});
@@ -118,7 +119,7 @@ Deno.serve(async request=>{
   }
   if(input.action==='save_record'){
    const {data,error}=await admin.rpc('tm_save_record',{p_actor:actor.id,p_kind:input.kind,p_id:input.id,p_payload:input.payload||{},p_version:Number(input.version||0),p_delete:!!input.deleted});
-   if(error)return reply({error:error.message.includes('CONFLICT')?'Another user updated this record. Reload before saving.':'Database save denied or invalid record.'},error.message.includes('CONFLICT')?409:403);
+   if(error){const reviewErrors=['A rejection reason is required','Medical certificate must be received before confirming','Invalid leave review transition','New leave requests must be pending','Leave request ownership cannot change','Only managers can review existing requests'];const message=reviewErrors.find(text=>error.message.includes(text));return reply({error:error.message.includes('CONFLICT')?'Another user updated this record. Reload before saving.':message||'Database save denied or invalid record.'},error.message.includes('CONFLICT')?409:403);}
    if(input.kind==='technician'&&input.deleted){
     const failed=await deleteLinkedAuthUsers(admin.auth.admin,data.deleted_user_ids||[]);
     return reply({record:data,...(failed.length?{accountWarning:'Technician and linked user access removed. Authentication account cleanup failed; contact the administrator to finish removing the disabled login.'}:{})});
