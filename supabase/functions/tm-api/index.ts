@@ -3,6 +3,7 @@ import { technicianSnapshot, technicianDirectory, sameTechnician } from './visib
 import { deleteLinkedAuthUsers } from './account-cleanup.ts';
 import { auditTechnicianLogins } from './login-audit.ts';
 import { createTemporaryPassword } from './account-security.ts';
+import { canRemoveCoordinator } from './account-removal.ts';
 import { overtimeInvitations, invitedOvertimeCopy, validateTechnicianImport } from './overtime-transfer.ts';
 
 // Deploy with gateway JWT verification disabled: login is public, every other
@@ -149,11 +150,21 @@ Deno.serve(async request=>{
    if(profileError){await admin.auth.admin.deleteUser(data.user.id);return reply({error:'Could not create profile. Username may already exist.'},400);}
    return reply({id:data.user.id});
   }
-  if(['update_user','delete_user','reset_password'].includes(input.action)){
+  if(['update_user','delete_user','reset_password','remove_user'].includes(input.action)){
    const {data:target,error}=await admin.from('tm_profiles').select('*').eq('id',input.id).single();
    if(error||!target)return reply({error:'Account not found'},404);
    if(target.id===actor.id)return reply({error:'Use your own profile/password settings'},403);
    if(!manage(actor.role,target.role))return reply({error:'Account management denied'},403);
+   if(input.action==='remove_user'){
+    if(!canRemoveCoordinator(actor,target))return reply({error:'Only administrators can remove coordinator accounts.'},403);
+    // Detach historical FKs before deleting the application profile. Retain payload identities.
+    const {error:historyError}=await admin.from('tm_records').update({owner_id:null}).eq('owner_id',target.id);fail(historyError);
+    const {data:removed,error:removeError}=await admin.from('tm_profiles').delete().eq('id',target.id).eq('role','Coordinator').select('id');
+    if(removeError||removed?.length!==1)return reply({error:'Account removal failed. Refresh and check the account role.'},409);
+    const data={removed:true,id:target.id};
+    const failed=await deleteLinkedAuthUsers(admin.auth.admin,[target.id]);
+    return reply({...data,...(failed.length?{accountWarning:'Coordinator login access was removed. Authentication cleanup needs administrator attention.'}:{})});
+   }
    if(input.action==='delete_user'){
     // Preserve historical record ownership; suspension revokes application access.
     const {error}=await admin.from('tm_profiles').update({status:'Suspended'}).eq('id',target.id);fail(error);
