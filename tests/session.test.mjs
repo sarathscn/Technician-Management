@@ -133,3 +133,9 @@ test('new overtime invitations notify React even when all existing records are u
  assert.equal(JSON.parse(a.localStorage.getItem('amc_overtime_invitations'))[0].id,'shared');
  a.cloud.signOut();assert.equal(a.localStorage.getItem('amc_overtime_invitations'),null);
 });
+
+test('direct leave saves wait for the server and do not alter local requests on failure',async()=>{
+ const a=app({busyUI:false,handler:(_,body)=>body.action==='save_record'?{status:403,ok:false,json:async()=>({error:'A rejection reason is required'})}:null});
+ await a.cloud.start();await assert.rejects(()=>a.cloud.saveRecord('leave_request','request',{id:'request',status:'Rejected'}),/rejection reason/);
+ assert.deepEqual(JSON.parse(a.localStorage.getItem('amc_leave_requests')),[]);assert.equal(a.events.length,0);assert.equal(a.reloads(),0);
+});

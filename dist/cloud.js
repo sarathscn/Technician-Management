@@ -73,6 +73,7 @@ window.TMCloud=(()=>{
   if(response.status===401){signOut('Your session expired. Please sign in again.');throw authError('Session expired');}
   if(!response.ok)throw Error(result.msg||result.message||result.error_description||'Could not update your password. Please try again.');
  }
+ async function saveRecord(kind,id,payload){await pending;if(failed)throw Error('Previous edits could not be saved. Refresh this page before reviewing leave requests.');if(terminating)throw authError('Please sign in again.');dirty++;revision++;let result;try{result=await api('save_record',{kind,id,payload,version:versions[kind+':'+id]||0});versions[kind+':'+id]=result.record.version;}finally{dirty--;}await refresh();return result;}
  async function refresh(){await pending;if(dirty||failed)throw Error('Finish saving your current changes before refreshing.');const startedRevision=revision;const snapshot=await api('snapshot');if(dirty||startedRevision!==revision)throw Error('Your changes are saving. The new records will appear after synchronization.');const values=hydrate(snapshot);window.dispatchEvent(new CustomEvent('tm-cloud-update',{detail:{values,user:profile(snapshot.profile)}}));return snapshot;}
- return {start,login,api,refresh,banner,profile,showCredentials,changePassword,signOut,recordVersion:(kind,id)=>versions[kind+':'+id]||0};
+ return {start,login,api,refresh,saveRecord,banner,profile,showCredentials,changePassword,signOut,recordVersion:(kind,id)=>versions[kind+':'+id]||0};
 })();
